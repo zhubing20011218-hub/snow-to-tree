@@ -3,58 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>玫瑰金圣诞树</title>
+<title>雪落成树</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #07000a; overflow: hidden; }
-  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; color: #ffe9c9; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; }
   canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
 
   .title {
-    position: fixed; top: max(14px, env(safe-area-inset-top)); left: 0; right: 0;
-    text-align: center; pointer-events: none; user-select: none;
-    opacity: 0; transform: translateY(-8px); transition: opacity 2.4s ease 1.6s, transform 2.4s ease 1.6s;
+    position: fixed; left: clamp(24px, 7vw, 110px); top: 50%; transform: translateY(-50%);
+    pointer-events: none; user-select: none;
+    opacity: 0; transition: opacity 3s ease;
   }
-  .ready .title { opacity: 1; transform: none; }
+  .formed .title { opacity: 1; transition-delay: 1.2s; }
   .title h1 {
-    margin: 0; font-weight: 400; line-height: 1.15;
-    font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
-    font-size: clamp(30px, 5vw, 60px);
-    background: linear-gradient(100deg, #fff1c4 0%, #ffc94d 32%, #ff7eb6 68%, #ff2a7f 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 0 16px rgba(255, 60, 140, .45));
-    padding: 0 16px 6px;
+    margin: 0; font-weight: 400; font-style: italic; line-height: 1.2;
+    font-family: "Didot", "Bodoni 72", "Playfair Display", "Times New Roman", Georgia, serif;
+    font-size: clamp(22px, 2.9vw, 40px); letter-spacing: .01em;
+    color: #f4e3c8;
   }
   .title p {
-    margin: 4px 0 0; font-size: clamp(12px, 1.5vw, 15px); letter-spacing: .42em; text-indent: .42em;
-    color: rgba(255, 222, 196, .72);
+    margin: 14px 0 0; font-size: 11px; letter-spacing: .5em; color: rgba(255, 150, 190, .7);
+  }
+  @media (max-width: 760px) {
+    .title { left: 0; right: 0; top: max(34px, env(safe-area-inset-top)); transform: none; text-align: center; }
+    .title p { text-indent: .5em; }
   }
 
-  .bar {
-    position: fixed; left: 0; right: 0; bottom: max(20px, env(safe-area-inset-bottom));
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    pointer-events: none; user-select: none;
-  }
   .hint {
-    font-size: 12px; letter-spacing: .18em; color: rgba(255, 214, 190, .55);
-    transition: opacity 1.2s ease; text-align: center; padding: 0 16px;
+    position: fixed; left: 0; right: 0; bottom: max(22px, env(safe-area-inset-bottom));
+    text-align: center; font-size: 11px; letter-spacing: .32em; text-indent: .32em;
+    color: rgba(255, 255, 255, .34); pointer-events: none; user-select: none;
+    transition: opacity 1.5s ease;
   }
   .hint.gone { opacity: 0; }
-  button {
-    pointer-events: auto; cursor: pointer;
-    font: inherit; font-size: 13px; letter-spacing: .3em; text-indent: .3em;
-    color: #ffd98a; background: rgba(255, 42, 127, .08);
-    border: 1px solid rgba(255, 201, 77, .45); border-radius: 999px; padding: 10px 26px;
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-    transition: background .25s ease, border-color .25s ease, transform .15s ease;
-  }
-  button:hover { background: rgba(255, 42, 127, .2); border-color: rgba(255, 201, 77, .85); }
-  button:active { transform: scale(.96); }
-  button:focus-visible { outline: 2px solid #ffc94d; outline-offset: 3px; }
 
   #fallback {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    padding: 24px; text-align: center; line-height: 1.8; color: #ffd98a;
+    padding: 24px; text-align: center; line-height: 1.8; color: #f4e3c8;
   }
   #fallback[hidden] { display: none; }
 </style>
@@ -67,10 +53,7 @@
   <p id="subText"></p>
 </div>
 
-<div class="bar">
-  <div class="hint" id="hint">拖动旋转 · 滚轮或双指缩放 · 双击散开</div>
-  <button id="toggle" type="button">散开</button>
-</div>
+<div class="hint" id="hint">拖动旋转 · 滚轮缩放 · 双击化雪</div>
 
 <div id="fallback" hidden>这个浏览器不支持 WebGL2，请换用新版 Chrome、Edge 或 Safari 打开。</div>
 
@@ -81,29 +64,25 @@
    可以自己改的地方（改完保存，刷新浏览器就能看到）
    ===================================================================== */
 const CONFIG = {
-  title: 'Merry Christmas',          // 顶部大标题
-  subtitle: '愿你的冬天闪闪发光',       // 标题下面的小字，可以改成她的名字
+  title: 'Merry Christmas,',         // 左边的标题
+  subtitle: 'FOR YOU',               // 标题下面的小字，可以改成她的名字
 
   colors: {                          // 颜色（网页常用的 #十六进制 写法）
-    rose:     '#ff2a7f',             // 玫红（主色）
-    deepRose: '#d81b60',             // 深玫红
-    pink:     '#ff7eb6',             // 浅粉高光
-    gold:     '#ffc94d',             // 金色
-    paleGold: '#ffe6a3'              // 浅金
+    rose:     '#ff2f86',             // 玫红（主色）
+    deepRose: '#c2185b',             // 深玫红
+    blush:    '#ffb3cf',             // 浅粉
+    gold:     '#ffcf6b'              // 金色
   },
 
   counts: {                          // 粒子数量（电脑卡顿就把数字调小）
-    tree: 46000,                     // 树身
-    ribbon: 2600,                    // 每条流光丝带
-    ornaments: 260,                  // 闪烁的装饰星
-    floor: 20000,                    // 地面光尘
-    snow: 1600,                      // 雪花
-    hearts: 36,                      // 飘起的爱心
-    stars: 1400                      // 背景星空
+    ribbon: 64000,                   // 玫红色的螺旋树
+    thread: 9000,                    // 反向缠绕的金线
+    dust: 12000,                     // 树身周围的浮尘
+    snow: 6500                       // 雪
   },
 
-  spinSpeed: 0.16,                   // 树自转速度（0 = 不转）
-  lightSpeed: 0.55,                  // 追光绕树一圈的速度
+  spinSpeed: 0.2,                    // 树自转速度（0 = 不转）
+  cometSpeed: 0.1,                   // 那团金色的光爬到树顶的速度
   exposure: 1.0                      // 整体亮度
 };
 
@@ -120,6 +99,7 @@ if (!gl) {
 
 const rand = Math.random;
 const TAU = Math.PI * 2;
+const gauss = () => (rand() + rand() + rand() + rand() - 2) / 2;   // 中间密、两边稀的随机数
 
 // 把 #rrggbb 转成线性空间的 RGB（渲染最后会统一做一次色调映射）
 function hex(h) {
@@ -132,107 +112,67 @@ const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a
 const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 
 /* ============================ 生成粒子 ============================ */
-// 每个粒子 13 个数字：位置(3) 散开时的位置(3) 颜色(3) 大小 相位 类型 附加值
-const H = 10, BASE = 0.9, RADIUS = 3.7, TIERS = 5, STAR_Y = H + 0.6;
+// 每个粒子 13 个数字：位置(3) 化成雪时的位置(3) 颜色(3) 大小 相位 类型 附加值
+const H = 10, R = 3.4, TURNS = 6, STAR_Y = 10.25;
+const SNOW_W = 60, SNOW_H = 25;          // 下雪的范围（宽 × 高）
 const data = [];
 
-function add(x, y, z, col, size, type, u) {
-  // 散开位置：以树为中心的大球体里随机一点
-  const r = 9 + Math.cbrt(rand()) * 12, a = rand() * TAU, c = rand() * 2 - 1, s = Math.sqrt(1 - c * c);
-  data.push(x, y, z, Math.cos(a) * s * r, 5 + c * r * 0.75, Math.sin(a) * s * r,
-            col[0], col[1], col[2], size, rand(), type, u || 0);
+function add(x, y, z, col, size, type, extra) {
+  data.push(x, y, z, (rand() - 0.5) * SNOW_W, rand() * SNOW_H, (rand() - 0.5) * SNOW_W,
+            col[0], col[1], col[2], size, rand(), type, extra || 0);
 }
 
-// 树的轮廓：一层一层的"裙摆"，越往上越窄
-function profile(t) {
-  const taper = Math.pow(1 - t, 0.92);
-  const tier = 1 - ((t * TIERS) % 1);
-  return RADIUS * taper * (0.56 + 0.44 * tier) + 0.03;
-}
-const sampleT = () => 1 - Math.sqrt(1 - rand() * 0.995);   // 越靠下粒子越多（那里面积大）
+// ---- 先放"属于树"的粒子（它们会有倒影，也会化成雪） ----
 
-// 0 = 树身
-for (let i = 0; i < CONFIG.counts.tree; i++) {
-  const t = sampleT(), ang = rand() * TAU;
-  const shell = rand() < 0.86;
-  const tier = 1 - ((t * TIERS) % 1);
-  const rr = profile(t) * (shell ? 1 - 0.1 * rand() * rand() : Math.sqrt(rand()) * 0.94);
-  const y = BASE + t * (H - BASE) + (rand() - 0.5) * 0.07;
-  let col;
+// 0 = 玫红螺旋丝带。位置里存的是：在丝带上的进度、离丝带中线的横向偏移、纵向偏移
+for (let i = 0; i < CONFIG.counts.ribbon; i++) {
+  const stray = rand() < 0.2 ? 2.4 : 1;                 // 少量粒子飘得更散，像扬起的雪粉
   const k = rand();
-  if (shell && tier > 0.86 && k < 0.7) col = mixc(C.gold, C.paleGold, rand());            // 每层裙边镶金
-  else if (k < 0.12) col = C.gold;
-  else if (k < 0.2) col = mixc(C.pink, C.rose, 0.3 + rand() * 0.6);
-  else col = mixc(C.deepRose, C.rose, rand());
-  col = mixc(col, C.pink, t * 0.08);                                                       // 越往上越亮
-  const gain = shell ? 0.4 + rand() * 0.5 : 0.18;
-  add(Math.cos(ang) * rr, y, Math.sin(ang) * rr, mul(col, gain), 0.05 + Math.pow(rand(), 3) * 0.12, 0);
+  let col = k < 0.8 ? mixc(C.deepRose, C.rose, rand()) : k < 0.93 ? mixc(C.rose, C.blush, rand()) : C.gold;
+  const gain = (0.16 + Math.pow(rand(), 2) * 0.85) / (stray > 1 ? 1.6 : 1);
+  add(rand(), gauss() * stray, gauss() * stray, mul(col, gain), 0.03 + Math.pow(rand(), 3) * 0.05, 0);
 }
-// 树干
-for (let i = 0; i < 500; i++) {
-  const ang = rand() * TAU, rr = 0.26 * Math.sqrt(rand());
-  add(Math.cos(ang) * rr, rand() * (BASE + 0.4), Math.sin(ang) * rr, mul(C.gold, 0.22), 0.06 + rand() * 0.05, 0);
+// 1 = 圆锥形的浮尘，让轮廓更像一棵树
+for (let i = 0; i < CONFIG.counts.dust; i++) {
+  const t = 1 - Math.sqrt(1 - rand() * 0.98), ang = rand() * TAU;
+  const rr = (R * Math.pow(1 - t, 1.12) + 0.05) * Math.sqrt(rand()) * 1.08;
+  add(Math.cos(ang) * rr, H * t, Math.sin(ang) * rr, mul(mixc(C.deepRose, C.blush, rand()), 0.26), 0.025 + rand() * 0.03, 1);
 }
+// 树尖上的一小簇金色
+for (let i = 0; i < 160; i++) {
+  const a = rand() * TAU, c = rand() * 2 - 1, s = Math.sqrt(1 - c * c), r = Math.cbrt(rand()) * 0.16;
+  add(Math.cos(a) * s * r, STAR_Y + c * r, Math.sin(a) * s * r, mul(C.gold, 1.2), 0.035 + rand() * 0.04, 1);
+}
+// 2 = 反方向缠绕的金线
+for (let i = 0; i < CONFIG.counts.thread; i++) {
+  add(rand(), gauss(), gauss(), mul(mixc(C.gold, [1, 0.9, 0.7], rand()), 0.25 + rand() * 0.6), 0.028 + Math.pow(rand(), 3) * 0.04, 2);
+}
+// 3 = 沿着丝带往上爬的那团光（彗星）。位置里存的是：落后彗头多远、横向偏移、纵向偏移
+for (let i = 0; i < 700; i++) {
+  add(-Math.log(1 - rand() * 0.995) * 0.012, gauss(), gauss(), mul(mixc(C.gold, [1, 0.95, 0.85], rand()), 1.0), 0.04 + rand() * 0.06, 3);
+}
+const TREE_COUNT = data.length / 13;
 
-// 1 = 闪烁的装饰星
-const ornamentColors = [C.gold, C.paleGold, C.pink, C.rose, [1, 0.75, 0.8]];
-for (let i = 0; i < CONFIG.counts.ornaments; i++) {
-  const t = sampleT() * 0.94, ang = rand() * TAU, rr = profile(t) * 0.98;
-  const col = ornamentColors[(rand() * ornamentColors.length) | 0];
-  add(Math.cos(ang) * rr, BASE + t * (H - BASE), Math.sin(ang) * rr, mul(col, 1.1), 0.34 + rand() * 0.3, 1);
-}
+// ---- 然后是环境 ----
 
-// 2 = 盘旋而上的流光丝带（三条）
-const STRANDS = 3, TURNS = 4.5;
-for (let s = 0; s < STRANDS; s++) {
-  for (let i = 0; i < CONFIG.counts.ribbon; i++) {
-    const u = rand() * 0.985;
-    const ang = u * TURNS * TAU + s * TAU / STRANDS;
-    const rr = (RADIUS * Math.pow(1 - u, 0.92) * 0.87 + 0.14) * 1.08 + (rand() - 0.5) * 0.12;
-    const y = BASE + u * (H - BASE) + (rand() - 0.5) * 0.12;
-    add(Math.cos(ang) * rr, y, Math.sin(ang) * rr, mixc(C.gold, C.paleGold, rand()), 0.06 + Math.pow(rand(), 2) * 0.13, 2, s + u);
+// 4 = 雪
+for (let i = 0; i < CONFIG.counts.snow; i++) {
+  const big = rand() < 0.1;
+  add((rand() - 0.5) * SNOW_W, rand() * SNOW_H, (rand() - 0.5) * SNOW_W, [1, 0.97, 0.98],
+      big ? 0.08 + rand() * 0.08 : 0.022 + rand() * 0.04, 4);
+}
+// 5 = 地面上一圈圈的涟漪
+for (let k = 0, r = 0.9; r < 15; k++, r *= 1.135) {
+  const n = Math.floor(230 * r);
+  for (let i = 0; i < n; i++) {
+    const ang = rand() * TAU, rr = r + gauss() * 0.05;
+    add(Math.cos(ang) * rr, 0, Math.sin(ang) * rr, mul(mixc(C.rose, [1, 1, 1], 0.55 + rand() * 0.3), 0.5 + rand() * 0.5), 0.028 + rand() * 0.035, 5, k);
   }
 }
-
-// 3 = 树顶的星（两片互相垂直的五角星，从哪个角度看都完整）
-const starPts = [];
-for (let k = 0; k < 10; k++) {
-  const a = Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 0.3 : 0.78;
-  starPts.push([Math.cos(a) * r, Math.sin(a) * r]);
-}
-for (let i = 0; i < 900; i++) {
-  const k = (rand() * 10) | 0, p = starPts[k], q = starPts[(k + 1) % 10], t = rand();
-  let x = p[0] + (q[0] - p[0]) * t, y = p[1] + (q[1] - p[1]) * t;
-  if (rand() < 0.45) { const s = Math.sqrt(rand()); x *= s; y *= s; }
-  const j = (rand() - 0.5) * 0.04;
-  const col = mul(mixc(C.gold, C.paleGold, rand()), 1.2);
-  if (i % 2) add(x, STAR_Y + y, j, col, 0.07 + rand() * 0.08, 3);
-  else add(j, STAR_Y + y, x, col, 0.07 + rand() * 0.08, 3);
-}
-
-// 4 = 雪花
-for (let i = 0; i < CONFIG.counts.snow; i++) {
-  add((rand() - 0.5) * 30, rand() * 18, (rand() - 0.5) * 30, [1, 0.86, 0.92], 0.035 + rand() * 0.06, 4);
-}
-
-// 5 = 地面光尘（上面会出现追着光走的树影）
-for (let i = 0; i < CONFIG.counts.floor; i++) {
-  const r = Math.pow(rand(), 0.62) * 10.5, ang = rand() * TAU;
-  const col = rand() < 0.3 ? C.gold : mixc(C.deepRose, C.rose, rand());
-  add(Math.cos(ang) * r, 0, Math.sin(ang) * r, mul(col, 0.9), 0.06 + rand() * 0.09, 5);
-}
-
-// 6 = 背景星空
-for (let i = 0; i < CONFIG.counts.stars; i++) {
-  const a = rand() * TAU, c = rand() * 1.5 - 0.5, s = Math.sqrt(Math.max(0, 1 - c * c)), r = 60 + rand() * 25;
-  const col = rand() < 0.5 ? [1, 0.8, 0.86] : [1, 0.9, 0.7];
-  add(Math.cos(a) * s * r, c * r, Math.sin(a) * s * r, col, 0.18 + rand() * 0.26, 6);
-}
-
-// 7 = 绕树飘起的爱心（位置里存的是：半径、起始高度、起始角度）
-for (let i = 0; i < CONFIG.counts.hearts; i++) {
-  const col = rand() < 0.6 ? C.rose : C.pink;
-  add(4.2 + rand() * 3.4, rand() * 13, rand() * TAU, mul(col, 0.9), 0.3 + rand() * 0.26, 7);
+// 6 = 彗星到达树顶时，从树尖喷出的雪屑。位置里存的是飞出去的方向和速度
+for (let i = 0; i < 600; i++) {
+  const a = rand() * TAU, c = rand() * 1.4 - 0.4, s = Math.sqrt(Math.max(0, 1 - c * c)), v = 0.5 + rand() * 1.9;
+  add(Math.cos(a) * s * v, c * v, Math.sin(a) * s * v, rand() < 0.6 ? C.gold : [1, 0.95, 0.96], 0.03 + rand() * 0.05, 6);
 }
 
 const STRIDE = 13;
@@ -247,91 +187,136 @@ layout(location=1) in vec3 aScatter;
 layout(location=2) in vec3 aColor;
 layout(location=3) in vec4 aData;       // 大小, 相位, 类型, 附加值
 uniform mat4 uVP;
-uniform vec3 uLight;                     // 指向追光的方向
-uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uShadowLen;
+uniform vec4 uComet;                     // 彗星的位置 (xyz) 和亮度 (w)
+uniform vec3 uPointer;                   // 鼠标在屏幕上的位置 (xy) 和活跃度 (z)
+uniform vec3 uGold;
+uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseAge, uAspect, uDist;
 out vec3 vColor;
 flat out float vShape;
 
+const float H = ${H.toFixed(1)}, R = ${R.toFixed(2)}, TURNS = ${TURNS.toFixed(1)}, STAR_Y = ${STAR_Y.toFixed(2)};
+const float SNOW_W = ${SNOW_W.toFixed(1)}, SNOW_H = ${SNOW_H.toFixed(1)};
+
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
 
+// 螺旋丝带：q 是沿着丝带走了多远（0 = 地面，1 = 树尖）
+vec3 helix(float q, float dir, float jr, float jy, float wScale, out float t) {
+  t = 1.0 - sqrt(1.0 - q);
+  float ang = dir * TURNS * 6.2831853 * pow(t, 0.8);
+  float r = R * pow(1.0 - t, 1.12) + 0.04;
+  float w = (0.08 + 0.6 * (1.0 - t)) * wScale;
+  float rr = r + jr * w;
+  return vec3(cos(ang) * rr, H * t + jy * w * 0.5, sin(ang) * rr);
+}
+
+// 雪的飘落：一边下落，一边被风吹着横移、左右摇摆
+vec3 snowfall(vec3 s, float ph, out float edge) {
+  vec3 p = s;
+  p.y = mod(s.y - uTime * (0.5 + ph * 0.9), SNOW_H) - 3.0;
+  p.x = mod(s.x + uTime * 0.28 * (0.5 + ph) + SNOW_W * 0.5, SNOW_W) - SNOW_W * 0.5 + sin(uTime * 0.35 + ph * 40.0) * 0.6;
+  p.z = s.z + cos(uTime * 0.3 + ph * 31.0) * 0.6;
+  edge = smoothstep(-3.0, 0.5, p.y) * (1.0 - smoothstep(SNOW_H - 6.0, SNOW_H - 3.0, p.y))
+       * (1.0 - smoothstep(SNOW_W * 0.5 - 3.0, SNOW_W * 0.5, abs(p.x)));
+  return p;
+}
+
 void main() {
-  float size = aData.x, ph = aData.y, type = aData.z, u = aData.w;
-  vec3 p = aPos;
-  float bright = 1.0, shape = 0.0, f = 1.0;
+  float size = aData.x, ph = aData.y, type = aData.z, ex = aData.w;
+  vec3 p = aPos, col = aColor;
+  float bright = 1.0, alpha = 1.0;
+  bool tree = type < 3.5;
 
-  // 镜像倒影里不画雪、地面和星空
-  if (uMirror > 0.0 && type > 3.5 && type < 6.5) {
-    gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 1.0; vColor = vec3(0.0); vShape = 0.0; return;
-  }
-
-  if (type < 3.5) {                      // 属于树的粒子：聚合 / 散开 + 自转
-    f = clamp(uForm * 1.7 - ph * 0.7, 0.0, 1.0);
-    f = f * f * (3.0 - 2.0 * f);
-    vec3 s = aScatter;
-    s.xz = rot((1.0 - f) * 2.4 + uTime * 0.04) * s.xz;
-    s.y += sin(uTime * 0.6 + ph * 6.283) * 0.5;
-    p = mix(s, aPos, f);
+  if (tree) {
+    float q = 0.0, t = 0.0;
+    if (type < 0.5) {                    // 玫红丝带：粒子缓缓向上流动
+      q = fract(aPos.x + uTime * 0.010);
+      p = helix(q, 1.0, aPos.y, aPos.z, 1.0, t);
+      bright = smoothstep(0.0, 0.02, q) * (1.0 - smoothstep(0.985, 1.0, q));
+      col = mix(col, uGold * 0.8, smoothstep(0.7, 1.0, t) * 0.65);
+    } else if (type < 1.5) {             // 浮尘
+      p = aPos;
+    } else if (type < 2.5) {             // 金线
+      q = fract(aPos.x + uTime * 0.018);
+      p = helix(q, -1.0, aPos.y, aPos.z, 0.1, t);
+      bright = smoothstep(0.0, 0.02, q) * (1.0 - smoothstep(0.985, 1.0, q));
+    } else {                             // 彗星
+      q = uCometQ - aPos.x;
+      p = helix(clamp(q, 0.0, 0.999), 1.0, aPos.y, aPos.z, 0.22, t);
+      bright = step(0.0, q) * uComet.w * (exp(-aPos.x * 60.0) * 3.5 + 0.35);
+    }
     p.xz = rot(uSpin) * p.xz;
-  }
 
-  if (type < 0.5) {                      // 树身：受追光照亮，背光面变暗
-    vec2 h = normalize(aPos.xz + vec2(1e-4, 0.0));
-    vec3 n = normalize(vec3(h.x, 0.38, h.y));
-    n.xz = rot(uSpin) * n.xz;
-    float d = max(dot(n, uLight), 0.0);
-    float lit = 0.10 + 2.1 * pow(d, 1.3);
-    float tw = 0.75 + 0.25 * sin(uTime * (1.5 + ph * 3.0) + ph * 40.0);
-    float sparkle = pow(max(sin(uTime * (0.8 + ph * 1.7) + ph * 97.0), 0.0), 24.0) * 2.5;
-    bright = mix(0.8, lit, f) * tw + sparkle;
-  } else if (type < 1.5) {               // 装饰星：十字星芒，忽明忽暗
-    shape = 2.0;
-    bright = 0.45 + 1.1 * pow(0.5 + 0.5 * sin(uTime * (1.2 + ph * 2.0) + ph * 50.0), 3.0);
-  } else if (type < 2.5) {               // 丝带：一团团光沿着螺旋向上追逐，后面拖着尾巴
-    float strand = floor(u), uu = fract(u);
-    float w = fract(uu * 3.0 - uTime * 0.22 + strand * 0.3333);
-    float head = pow(w, 7.0);
-    bright = (0.14 + 3.2 * head) * (0.8 + 0.2 * sin(uTime * 5.0 + ph * 30.0));
-    size *= 0.8 + 1.4 * head;
-  } else if (type < 3.5) {               // 树顶星
-    bright = 1.5 + 0.5 * sin(uTime * 2.2 + ph * 6.0);
+    if (type < 2.5) {
+      // 闪烁
+      float tw = 0.7 + 0.3 * sin(uTime * (1.2 + ph * 2.5) + ph * 40.0);
+      float sp = pow(max(sin(uTime * (0.7 + ph * 1.6) + ph * 97.0), 0.0), 30.0) * 3.0;
+      bright *= tw + sp;
+
+      // 彗星经过时把附近照成金色，身后留下一条慢慢熄灭的光带
+      vec3 dv = p - uComet.xyz;
+      float g = uComet.w * exp(-dot(dv, dv) * 0.5);
+      float tail = 0.0;
+      if (type < 0.5) { float dq = uCometQ - q; tail = dq > 0.0 ? exp(-dq * 24.0) * uComet.w : 0.0; }
+      col = mix(col, uGold, clamp(g * 1.2 + tail, 0.0, 1.0));
+      bright *= 1.0 + 3.2 * g + 1.7 * tail;
+
+      // 聚合 / 化雪：没聚合的时候，这些粒子就是漫天的雪
+      float f = clamp(uForm * 1.6 - ph * 0.6, 0.0, 1.0);
+      f = f * f * (3.0 - 2.0 * f);
+      if (f < 1.0) {
+        float edge;
+        vec3 s = snowfall(aScatter, ph, edge);
+        p = mix(s, p, f);
+        col = mix(vec3(0.85, 0.82, 0.84), col, f);
+        bright = mix(0.6 * edge * step(0.84, fract(ph * 7.13)), bright, f);
+      }
+    }
   } else if (type < 4.5) {               // 雪
-    p.y = mod(aPos.y - uTime * (0.35 + ph * 0.5), 18.0);
-    p.x += sin(uTime * 0.5 + ph * 20.0) * 0.5;
-    p.z += cos(uTime * 0.4 + ph * 17.0) * 0.5;
-    bright = 0.32 * smoothstep(0.0, 1.5, p.y);
-  } else if (type < 5.5) {               // 地面：光晕涟漪 + 树投下的影子
-    float r = length(aPos.xz);
-    vec2 dir = aPos.xz / max(r, 1e-3);
-    vec2 Lh = normalize(uLight.xz);
-    float ripple = 0.5 + 0.5 * sin(r * 2.4 - uTime * 1.6);
-    float fall = exp(-r * 0.17);
-    float along = dot(aPos.xz, -Lh);                       // 沿着影子方向走了多远
-    float lat = abs(aPos.x * Lh.y - aPos.z * Lh.x);        // 离影子中线多远
-    float wdt = ${RADIUS.toFixed(2)} * (1.0 - along / uShadowLen);
-    float inside = smoothstep(-0.2, 0.9, along) * smoothstep(0.0, 0.7, wdt - lat);
-    float side = 1.0 + 0.35 * dot(dir, Lh) * smoothstep(0.0, 3.0, r);
-    bright = (0.45 + 0.55 * ripple) * fall * 1.5 * side * (1.0 - 0.94 * inside * uForm);
-  } else if (type < 6.5) {               // 星空
-    bright = 0.2 + 0.2 * sin(uTime * (0.5 + ph) + ph * 30.0);
-  } else {                               // 爱心
-    shape = 1.0;
-    float y = mod(aPos.y + uTime * (0.25 + ph * 0.3), 13.0);
-    float a = aPos.z + uTime * 0.12 + sin(uTime * 0.7 + ph * 9.0) * 0.2;
-    p = vec3(cos(a) * aPos.x, y, sin(a) * aPos.x);
-    bright = 0.6 * smoothstep(0.0, 2.0, y) * (1.0 - smoothstep(10.0, 13.0, y)) * uForm;
+    float edge;
+    p = snowfall(aPos, ph, edge);
+    bright = 0.5 * edge;
+  } else if (type < 5.5) {               // 涟漪：一圈圈的光点，彗星到顶时会有一道金色的波纹荡开
+    float r = length(aPos.xz), a = atan(aPos.z, aPos.x);
+    p.xz = rot(uTime * 0.025 * (mod(ex, 2.0) < 0.5 ? 1.0 : -1.0)) * aPos.xz;
+    float wave = sin(r * 1.7 - uTime * 1.1);
+    float pulse = exp(-pow((r - uPulseAge * 3.4) / 0.8, 2.0)) * exp(-uPulseAge * 0.45);
+    p.y = wave * 0.05 * smoothstep(0.0, 3.0, r) + pulse * 0.3;
+    float arc = smoothstep(-0.35, 0.25, sin(a + ex * 2.4 + uTime * 0.03) + 0.4 * sin(a * 3.0 - ex * 1.3));
+    bright = (0.22 + 0.3 * (0.5 + 0.5 * wave)) * exp(-r * 0.12) * arc * 1.7 * mix(0.35, 1.0, uForm) + pulse * 1.8;
+    col = mix(col, uGold, clamp(pulse * 1.4, 0.0, 1.0));
+  } else {                               // 树尖喷出的雪屑
+    float age = uPulseAge;
+    float tt = (1.0 - exp(-age * 1.1)) / 1.1;
+    p = vec3(0.0, STAR_Y, 0.0) + aPos * tt * 1.8 + vec3(sin(age * 0.8 + ph * 20.0) * 0.15 * age, -0.12 * age * age, 0.0);
+    bright = exp(-age * 0.5) * (0.5 + 0.9 * pow(0.5 + 0.5 * sin(uTime * 6.0 + ph * 50.0), 4.0)) * 1.3 * step(age, 20.0);
   }
 
-  float alpha = 1.0;
   if (uMirror > 0.0) {                   // 倒影：上下翻转，越高的地方越淡
-    alpha = 0.3 * uMirror * exp(-max(p.y, 0.0) * 0.24);
+    alpha = 0.16 * uMirror * exp(-max(p.y, 0.0) * 0.22);
     p.y = -p.y;
   }
 
   vec4 clip = uVP * vec4(p, 1.0);
+
+  // 远处的粒子暗一点，让前后层次更清楚
+  if (tree) bright *= mix(1.0, 0.45, smoothstep(uDist - 3.5, uDist + 3.5, clip.w));
+
+  // 鼠标划过的地方，粒子像被吹了一口气一样散开
+  vec2 nd = clip.xy / max(clip.w, 0.001);
+  vec2 dv = (nd - uPointer.xy) * vec2(uAspect, 1.0);
+  float dd = dot(dv, dv);
+  float push = uPointer.z * exp(-dd * 24.0) * (0.3 + 1.4 * ph);
+  clip.xy += dv / (sqrt(dd) + 0.03) * push * 0.075 * clip.w / vec2(uAspect, 1.0);
+
   gl_Position = clip;
   float px = size * uPx / max(clip.w, 0.1);
+  float shape = 0.0;
+  if (px > 12.0) {                       // 离镜头很近的粒子：虚化成淡淡的光斑，太近的直接淡出
+    shape = 1.0;
+    bright *= pow(12.0 / px, 2.0) * (1.0 - smoothstep(uMaxPt * 0.55, uMaxPt, px));
+  }
   gl_PointSize = clamp(px, 1.5, uMaxPt);
-  vColor = aColor * bright * alpha * min(1.0, px / 1.5) * uGain;
+  vColor = col * bright * alpha * min(1.0, px / 1.5) * uGain;
   vShape = shape;
 }`;
 
@@ -343,16 +328,8 @@ out vec4 o;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = dot(p, p), a;
-  if (vShape < 0.5) {                    // 圆形柔光点
-    a = exp(-d * 5.5) - 0.004 + 0.9 * exp(-d * 40.0);
-  } else if (vShape < 1.5) {             // 爱心
-    vec2 q = vec2(p.x, -p.y) * 1.3; q.y += 0.2;
-    float h = pow(q.x * q.x + q.y * q.y - 1.0, 3.0) - q.x * q.x * q.y * q.y * q.y;
-    a = (1.0 - smoothstep(-0.15, 0.04, h)) * 0.85 + 0.2 * exp(-d * 3.0) * (1.0 - smoothstep(0.7, 1.0, d));
-  } else {                               // 十字星芒
-    float rays = exp(-abs(p.x) * 18.0) * exp(-abs(p.y) * 2.6) + exp(-abs(p.y) * 18.0) * exp(-abs(p.x) * 2.6);
-    a = exp(-d * 14.0) * 1.2 + rays * 0.7 * (1.0 - smoothstep(0.55, 1.0, d));
-  }
+  if (vShape < 0.5) a = exp(-d * 4.5) - 0.011 + 0.8 * exp(-d * 30.0);   // 细小的光点
+  else a = (1.0 - smoothstep(0.55, 1.0, d)) * 0.5;                       // 虚化的光斑
   if (a <= 0.0) discard;
   o = vec4(vColor * a, 1.0);
 }`;
@@ -381,35 +358,35 @@ void main() {
   o = vec4(c, 1.0);
 }`;
 
-// 合成：原图 + 三层光晕 + 树顶星芒 + 背景 + 色调映射
+// 合成：原图 + 一点点光晕 + 树尖和彗星的辉光，背景保持纯黑
 const FS_FINAL = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform sampler2D uScene, uB1, uB2, uB3;
-uniform vec3 uStar;                      // 树顶星在屏幕上的位置 (xy) 和亮度 (z)
+uniform vec3 uStar, uCometS;             // 屏幕上的位置 (xy) 和亮度 (z)
+uniform vec3 uGold;
 uniform float uAspect, uExposure, uTime;
 out vec4 o;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main() {
   vec3 c = texture(uScene, vUv).rgb;
-  c += texture(uB1, vUv).rgb * 0.28 + texture(uB2, vUv).rgb * 0.3 + texture(uB3, vUv).rgb * 0.34;
+  c += texture(uB1, vUv).rgb * 0.16 + texture(uB2, vUv).rgb * 0.18 + texture(uB3, vUv).rgb * 0.22;
 
   vec2 d = (vUv - uStar.xy) * vec2(uAspect, 1.0);
   float r2 = dot(d, d);
-  float glow = exp(-r2 * 1800.0) * 0.9 + exp(-r2 * 140.0) * 0.16;
-  float rays = exp(-abs(d.y) * 260.0) * exp(-abs(d.x) * 17.0) + exp(-abs(d.x) * 260.0) * exp(-abs(d.y) * 24.0);
-  c += uStar.z * vec3(1.0, 0.72, 0.3) * (glow + rays * 0.42);
+  float spikes = exp(-abs(d.y) * 340.0) * exp(-abs(d.x) * 30.0) + exp(-abs(d.x) * 340.0) * exp(-abs(d.y) * 30.0);
+  c += uStar.z * uGold * (exp(-r2 * 3200.0) * 1.3 + exp(-r2 * 240.0) * 0.12 + spikes * 0.3);
 
-  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);
-  vec3 bg = mix(vec3(0.030, 0.002, 0.016), vec3(0.003, 0.0, 0.006), smoothstep(0.0, 0.95, length(q - vec2(0.0, -0.12))));
+  d = (vUv - uCometS.xy) * vec2(uAspect, 1.0);
+  r2 = dot(d, d);
+  c += uCometS.z * uGold * (exp(-r2 * 3600.0) * 1.0 + exp(-r2 * 300.0) * 0.1);
 
-  c = bg + c * uExposure;
+  c *= uExposure;
   float m = max(c.r, max(c.g, c.b));                       // 按最亮的通道压缩亮度，保住玫红和金色本来的色相
   c *= (1.0 - exp(-m)) / max(m, 1e-4);
-  c = mix(c, vec3(1.0), 0.55 * smoothstep(1.6, 9.0, m)); // 只有非常亮的核心才发白
+  c = mix(c, vec3(1.0), 0.5 * smoothstep(1.6, 9.0, m));   // 只有非常亮的核心才发白
   c = pow(c, vec3(1.0 / 2.2));
-  c *= 1.0 - 0.32 * dot(q, q);
-  c += (hash(gl_FragCoord.xy + fract(uTime)) - 0.5) / 255.0;
+  c += (hash(gl_FragCoord.xy + fract(uTime)) - 0.5) / 255.0 * step(0.002, m);
   o = vec4(c, 1.0);
 }`;
 
@@ -506,24 +483,35 @@ function matmul(a, b) {
   }
   return o;
 }
+// 世界坐标 → 屏幕坐标（0~1），第三个数是"是否在镜头前面"
+function project(vp, x, y, z) {
+  const cx = vp[0] * x + vp[4] * y + vp[8] * z + vp[12];
+  const cy = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
+  const cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+  return [cx / cw * 0.5 + 0.5, cy / cw * 0.5 + 0.5, cw > 0 ? 1 : 0];
+}
 
 /* ============================ 交互 ============================ */
 const FOV = 40 * Math.PI / 180;
-let yaw = 0.5, pitch = 0.2, dist = 26, vYaw = 0, vPitch = 0;
+let yaw = 0.4, pitch = 0.3, dist = 23.5, vYaw = 0, vPitch = 0;
 let form = 0, formTarget = 0;
+let pointerX = 0, pointerY = 0, pointerLive = 0;
 const pointers = new Map();
 let pinch = 0;
 const hint = document.getElementById('hint');
-const toggleBtn = document.getElementById('toggle');
 const hideHint = () => hint.classList.add('gone');
 
 function toggleForm() {
   formTarget = formTarget > 0.5 ? 0 : 1;
-  toggleBtn.textContent = formTarget > 0.5 ? '散开' : '聚合';
+  document.body.classList.toggle('formed', formTarget > 0.5);
+  hint.textContent = formTarget > 0.5 ? '拖动旋转 · 滚轮缩放 · 双击化雪' : '双击，让雪重新聚成树';
+  hint.classList.remove('gone');
+  clearTimeout(hintTimer);
+  if (formTarget > 0.5) hintTimer = setTimeout(hideHint, 12000);
 }
-toggleBtn.addEventListener('click', toggleForm);
+let hintTimer = 0;
 canvas.addEventListener('dblclick', toggleForm);
-window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); toggleForm(); } });
+window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); toggleForm(); } });
 
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
@@ -533,19 +521,26 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   const p = pointers.get(e.pointerId);
-  if (!p) return;
+  if (!p) {                                         // 没按下，只是划过：吹散粒子
+    if (e.pointerType === 'mouse') {
+      pointerX = e.clientX / canvas.clientWidth * 2 - 1;
+      pointerY = 1 - e.clientY / canvas.clientHeight * 2;
+      pointerLive = 1;
+    }
+    return;
+  }
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
   p.x = e.clientX; p.y = e.clientY;
   if (pointers.size === 1) {
     yaw -= dx * 0.006; pitch += dy * 0.005;
     vYaw = Math.max(-0.05, Math.min(0.05, -dx * 0.006));
     vPitch = Math.max(-0.03, Math.min(0.03, dy * 0.005));
-    if (Math.abs(dx) + Math.abs(dy) > 2) hideHint();
+    if (Math.abs(dx) + Math.abs(dy) > 2 && formTarget > 0.5) hideHint();
   } else if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y);
     if (pinch > 0) dist *= pinch / Math.max(d, 1);
-    pinch = d; hideHint();
+    pinch = d;
   }
 });
 function release(e) {
@@ -554,14 +549,15 @@ function release(e) {
 }
 canvas.addEventListener('pointerup', release);
 canvas.addEventListener('pointercancel', release);
-canvas.addEventListener('wheel', e => { e.preventDefault(); dist *= Math.exp(e.deltaY * 0.0012); hideHint(); }, { passive: false });
-setTimeout(hideHint, 12000);
+canvas.addEventListener('wheel', e => { e.preventDefault(); dist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
 
 /* ============================ 每一帧 ============================ */
 const maxPoint = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];
-const TARGET = [0, 6.0, 0];
-const LIGHT_Y = 1.15;
+const TARGET = [0, 4.7, 0];
 let last = performance.now(), time = 0, spin = 0;
+let cometQ = 0, pulseAt = -100;
+
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 function drawQuad(prog, target, w, h) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, target);
@@ -575,12 +571,26 @@ function frame(now) {
   last = now; time += dt; spin += dt * CONFIG.spinSpeed;
   resize();
 
-  // 聚合进度 + 松手后的惯性
-  const step = dt / 2.6;
+  // 聚合进度、松手后的惯性、鼠标"吹气"的余波
+  const step = dt / 3.2;
   form = formTarget > form ? Math.min(formTarget, form + step) : Math.max(formTarget, form - step);
   if (!pointers.size) { yaw += vYaw; pitch += vPitch; vYaw *= 0.93; vPitch *= 0.86; }
-  pitch = Math.min(1.05, Math.max(0.03, pitch));
-  dist = Math.min(46, Math.max(11, dist));
+  pitch = Math.min(1.05, Math.max(0.04, pitch));
+  dist = Math.min(48, Math.max(10, dist));
+  pointerLive *= Math.exp(-dt * 1.5);
+
+  // 彗星：树完全成形后，一团金色的光沿着丝带爬上去；到顶时触发一次"心跳"
+  let cometOn = 0;
+  if (form >= 1) {
+    cometQ += dt * CONFIG.cometSpeed;
+    if (cometQ >= 1) { cometQ -= 1; pulseAt = time; }
+    cometOn = smooth(0, 0.03, cometQ) * (1 - smooth(0.97, 1, cometQ));
+  } else cometQ = 0;
+  const ct = 1 - Math.sqrt(1 - cometQ);
+  const ca = TURNS * TAU * Math.pow(ct, 0.8), cr = R * Math.pow(1 - ct, 1.12) + 0.04;
+  const hx = Math.cos(ca) * cr, hz = Math.sin(ca) * cr, cs = Math.cos(spin), sn = Math.sin(spin);
+  const comet = [cs * hx + sn * hz, H * ct, -sn * hx + cs * hz];
+  const pulseAge = time - pulseAt;
 
   // 相机：围着树转
   const aspect = W / HH;
@@ -588,11 +598,6 @@ function frame(now) {
   const cp = Math.cos(pitch);
   const eye = [TARGET[0] + dd * cp * Math.sin(yaw), TARGET[1] + dd * Math.sin(pitch), TARGET[2] + dd * cp * Math.cos(yaw)];
   const vp = matmul(perspective(FOV, aspect, 0.1, 250), lookAt(eye, TARGET));
-
-  // 追光：绕着树转的光源
-  const la = time * CONFIG.lightSpeed;
-  const ll = Math.hypot(1, LIGHT_Y);
-  const light = [Math.cos(la) / ll, LIGHT_Y / ll, Math.sin(la) / ll];
 
   // 1) 把所有粒子画进高动态范围画布（先画倒影，再画本体）
   gl.bindFramebuffer(gl.FRAMEBUFFER, scene.fbo);
@@ -603,17 +608,22 @@ function frame(now) {
   gl.useProgram(progPoints.p);
   const u = progPoints.u;
   gl.uniformMatrix4fv(u.uVP, false, vp);
-  gl.uniform3fv(u.uLight, light);
+  gl.uniform4f(u.uComet, comet[0], comet[1], comet[2], cometOn);
+  gl.uniform3f(u.uPointer, pointerX, pointerY, pointerLive);
+  gl.uniform3fv(u.uGold, C.gold);
   gl.uniform1f(u.uTime, time);
   gl.uniform1f(u.uForm, form);
   gl.uniform1f(u.uSpin, spin);
+  gl.uniform1f(u.uCometQ, cometQ);
+  gl.uniform1f(u.uPulseAge, pulseAge);
+  gl.uniform1f(u.uAspect, aspect);
+  gl.uniform1f(u.uDist, dd);
   gl.uniform1f(u.uPx, HH / (2 * Math.tan(FOV / 2)));
   gl.uniform1f(u.uGain, hdr ? 1 : 0.3);
-  gl.uniform1f(u.uMaxPt, Math.min(maxPoint, 96 * dpr));
-  gl.uniform1f(u.uShadowLen, (H + 0.6) / LIGHT_Y);
+  gl.uniform1f(u.uMaxPt, Math.min(maxPoint, 34 * dpr));
   gl.bindVertexArray(vao);
-  const gloss = 1 - 0.85 * Math.min(1, Math.max(0, (pitch - 0.15) / 0.55));   // 俯视时倒影变淡
-  gl.uniform1f(u.uMirror, gloss); gl.drawArrays(gl.POINTS, 0, COUNT);
+  const gloss = form * form * (1 - 0.85 * smooth(0.2, 0.75, pitch));   // 俯视时倒影变淡；化雪时没有倒影
+  if (gloss > 0.01) { gl.uniform1f(u.uMirror, gloss); gl.drawArrays(gl.POINTS, 0, TREE_COUNT); }
   gl.uniform1f(u.uMirror, 0); gl.drawArrays(gl.POINTS, 0, COUNT);
 
   // 2) 逐级缩小并模糊，得到三层光晕
@@ -637,15 +647,17 @@ function frame(now) {
   }
 
   // 3) 合成到屏幕
-  const sx = vp[4] * STAR_Y + vp[12], sy = vp[5] * STAR_Y + vp[13], sw = vp[7] * STAR_Y + vp[15];
-  const starOn = Math.max(0, Math.min(1, form * 1.7 - 0.7));
+  const star = project(vp, 0, STAR_Y, 0), cm = project(vp, comet[0], comet[1], comet[2]);
+  const formed = smooth(0.75, 1, form);
   gl.useProgram(progFinal.p);
   const f = progFinal.u;
   [scene.tex, levels[0].a.tex, levels[1].a.tex, levels[2].a.tex].forEach((t, i) => {
     gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t);
   });
   gl.uniform1i(f.uScene, 0); gl.uniform1i(f.uB1, 1); gl.uniform1i(f.uB2, 2); gl.uniform1i(f.uB3, 3);
-  gl.uniform3f(f.uStar, sx / sw * 0.5 + 0.5, sy / sw * 0.5 + 0.5, sw > 0 ? starOn * starOn * (0.85 + 0.15 * Math.sin(time * 2.2)) : 0);
+  gl.uniform3f(f.uStar, star[0], star[1], star[2] * formed * (0.55 + 0.1 * Math.sin(time * 2.1) + 2.2 * Math.exp(-pulseAge * 1.3)));
+  gl.uniform3f(f.uCometS, cm[0], cm[1], cm[2] * cometOn);
+  gl.uniform3fv(f.uGold, C.gold);
   gl.uniform1f(f.uAspect, aspect);
   gl.uniform1f(f.uExposure, CONFIG.exposure * (hdr ? 1 : 1 / 0.3));
   gl.uniform1f(f.uTime, time);
@@ -656,8 +668,8 @@ function frame(now) {
 
 resize();
 requestAnimationFrame(frame);
-// 开场：粒子从四面八方聚合成树
-setTimeout(() => { formTarget = 1; document.body.classList.add('ready'); }, 500);
+// 开场：先是一场雪，然后雪聚成树
+setTimeout(toggleForm, 1600);
 </script>
 </body>
 </html>
