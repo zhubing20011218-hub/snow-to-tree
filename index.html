@@ -61,29 +61,68 @@
 
   .title, .hint, .tools, #msg { z-index: 10; }
 
-  /* 散开时飘出来的照片 */
+  /* 照片：树成形时是挂在枝头的小吊坠，散开时是玫红 / 金色的雪花 */
   #photos { position: fixed; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
   .ph {
-    position: absolute; left: 0; top: 0; width: 160px; padding: 0; border: 0; background: #0b0b0b;
-    border-radius: 4px; overflow: hidden; cursor: zoom-in; opacity: 0; will-change: transform, opacity;
-    box-shadow: 0 0 0 1px rgba(255, 224, 190, .32), 0 0 26px rgba(255, 47, 134, .22);
+    position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; border: 0; background: none;
+    transform-origin: 0 0; pointer-events: none; opacity: 0; will-change: transform, opacity;
+    --e: 1; color: #ff2f86;                 /* --e：0 = 吊坠，1 = 雪花 */
   }
-  .ph img { display: block; width: 100%; height: auto; pointer-events: none; }
-  .ph:focus-visible { outline: 2px solid #ffcf6b; outline-offset: 3px; }
+  .ph.gold { color: #ffcf6b; }
+  .ph .thread {
+    position: absolute; left: -0.5px; top: 0; width: 1px; height: 18px; opacity: calc(1 - var(--e));
+    background: linear-gradient(rgba(255, 207, 107, 0), rgba(255, 207, 107, .95));
+  }
+  .ph .disc {
+    position: absolute; left: -23px; top: 17px; width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
+    background: #0b0b0b; opacity: calc(1 - var(--e)); cursor: zoom-in;
+    box-shadow: 0 0 0 1.5px #e9c46a, 0 0 0 2.5px rgba(0, 0, 0, .55), 0 0 14px rgba(255, 207, 107, .5);
+  }
+  .ph .disc img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+  .ph .flake {
+    position: absolute; left: -20px; top: -20px; width: 40px; height: 40px; opacity: var(--e); cursor: zoom-in;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ph .flake svg { width: 17px; height: 17px; overflow: visible; filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 9px currentColor); }
+  .ph:focus-visible .disc, .ph:focus-visible .flake { outline: 2px solid #ffcf6b; outline-offset: 3px; }
 
-  /* 点开放大 */
+  /* 点开之后：像一幅装裱好、打着灯的艺术照 */
   #lightbox {
     position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0); transition: background .35s ease; cursor: zoom-out;
+    padding-bottom: 6vh; background: rgba(0, 0, 0, 0); transition: background .45s ease; cursor: zoom-out;
   }
   #lightbox[hidden] { display: none; }
-  #lightbox.on { background: rgba(0, 0, 0, .86); }
-  #lbImg {
-    max-width: 86vw; max-height: 84vh; border-radius: 4px; opacity: 0;
-    box-shadow: 0 0 0 1px rgba(255, 224, 190, .3), 0 0 60px rgba(255, 47, 134, .25);
-    transition: transform .5s cubic-bezier(.2, .8, .2, 1), opacity .25s ease;
+  #lightbox.on { background: radial-gradient(ellipse 62% 52% at 50% 36%, rgba(255, 228, 186, .15), rgba(0, 0, 0, 0) 72%), rgba(0, 0, 0, .92); }
+  .stage { animation: artFloat 7s ease-in-out infinite; }
+  @keyframes artFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  #art {
+    padding: 6px; border-radius: 2px; opacity: 0;
+    background: linear-gradient(135deg, #f8e3a6, #b98a3c 28%, #fbeab6 52%, #a47628 78%, #f0d48f);   /* 细金框 */
+    box-shadow: 0 34px 70px rgba(0, 0, 0, .75), 0 0 90px rgba(255, 205, 130, .14);
+    -webkit-box-reflect: below 8px linear-gradient(rgba(0, 0, 0, 0) 70%, rgba(255, 255, 255, .17));  /* 像摆在光滑台面上的倒影 */
+    transition: transform .65s cubic-bezier(.2, .8, .2, 1), opacity .3s ease;
   }
-  #lightbox.on #lbImg { opacity: 1; }
+  #lightbox.on #art { opacity: 1; }
+  .mat { background: #f6f0e4; padding: clamp(14px, 3.4vmin, 36px); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1), inset 0 2px 10px rgba(0, 0, 0, .12); }   /* 卡纸留白 */
+  #lbImg { display: block; max-width: min(66vw, 920px); max-height: 60vh; box-shadow: 0 0 0 1px rgba(0, 0, 0, .28), 0 1px 4px rgba(0, 0, 0, .3); }
+  @media (prefers-reduced-motion: reduce) { .stage { animation: none; } }
+  /* 主照片两侧错落摆开的其他照片 */
+  .side {
+    position: absolute; padding: 5px; border: 0; background: #f6f0e4; cursor: pointer; opacity: 0;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, .65); filter: brightness(.72);
+    transition: opacity .5s ease .25s, filter .25s ease, transform .35s ease;
+  }
+  .side img { display: block; width: 100%; height: auto; pointer-events: none; }
+  #lightbox.on .side { opacity: var(--o, .8); }
+  .side:hover, .side:focus-visible { filter: brightness(1); outline: none; }
+  .stage { position: relative; z-index: 20; }
+  /* 有多张照片时，主照片小一点，给两侧的照片留出位置 */
+  #lightbox.multi #lbImg { max-width: min(46vw, 760px); max-height: 56vh; }
+  @media (max-width: 720px), (orientation: portrait) {
+    #lightbox.multi { padding-bottom: 20vh; }
+    #lightbox.multi #lbImg { max-width: 76vw; max-height: 42vh; }
+    #lightbox.multi #art { -webkit-box-reflect: unset; }
+  }
 
   /* 照片管理面板 */
   #panel {
@@ -141,7 +180,7 @@
 
 <div id="msg"></div>
 <div class="hint gone" id="hint"></div>
-<div id="photos" style="display:none"></div>
+<div id="photos"></div>
 <video id="cam" playsinline muted></video>
 <div class="tools">
   <button id="gestureBtn" type="button">手势</button>
@@ -150,13 +189,13 @@
   <button id="resetBtn" type="button">重新装饰</button>
 </div>
 
-<div id="lightbox" hidden><img id="lbImg" alt=""></div>
+<div id="lightbox" hidden><div id="sides"></div><div class="stage"><div id="art"><div class="mat"><img id="lbImg" alt=""></div></div></div></div>
 
 <div id="panel" hidden>
   <div class="sheet" role="dialog" aria-label="照片">
     <header><h2>照片</h2><span id="photoCount"></span><button id="panelClose" type="button">完成</button></header>
     <div id="grid"></div>
-    <footer>树散开的时候，这些照片会飘出来，点一下可以放大。<br>照片只保存在这台电脑的这个浏览器里，不会上传到任何地方。</footer>
+    <footer>照片会变成小吊坠挂在树上；树散开时，它们是玫红和金色的雪花。点一下就能放大。<br>照片只保存在这台电脑的这个浏览器里，不会上传到任何地方。</footer>
   </div>
 </div>
 <input type="file" id="file" accept="image/*" multiple hidden>
@@ -188,11 +227,11 @@ const CONFIG = {
   },
 
   counts: {                          // 粒子数量（电脑卡顿就把数字调小）
-    ribbon: 34000,                   // 玫红色的螺旋树
+    ribbon: 15000,                   // 玫红色的螺旋树
     thread: 9000,                    // 反向缠绕的金线
     dust: 5000,                      // 树身周围的浮尘
-    leaves: 4,                       // 每根长树枝上的叶片数
-    foliage: 210,                    // 每根树枝的粒子密度
+    frost: 0.25,                     // 枝头的霜（0 = 没有，数字越大越多）
+    foliage: 50,                     // 针叶的密度（每一小段树枝上有多少根针叶）
     snow: 6500                       // 雪
   },
 
@@ -228,7 +267,7 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 
 /* ============================ 生成粒子 ============================ */
 // 每个粒子 13 个数字：位置(3) 化成雪时的位置(3) 颜色(3) 大小 相位 类型 附加值
-const H = 10, R = 3.4, TURNS = 6, STAR_Y = 10.25;
+const H = 10, R = 3.8, TURNS = 5, STAR_Y = 10.25;
 const SNOW_W = 60, SNOW_H = 25;          // 下雪的范围（宽 × 高）
 const data = [];
 
@@ -253,37 +292,50 @@ for (let i = 0; i < CONFIG.counts.dust; i++) {
   const rr = (R * Math.pow(1 - t, 1.12) + 0.05) * Math.sqrt(rand()) * 1.08;
   add(Math.cos(ang) * rr, H * t, Math.sin(ang) * rr, mul(mixc(C.deepRose, C.blush, rand()), 0.26), 0.025 + rand() * 0.03, 1);
 }
-// 1 = 枝叶：十二层向外伸展、往下垂的树枝，枝梢挂着一点白霜
-const TIER_N = 12;
+// 1 = 枝叶：像冷杉那样，一层层树枝向外伸展、往下垂；每根树枝两侧交替长出小杈，小杈上长满针叶
+const TIER_N = 13, DENS = CONFIG.counts.foliage, WOOD = hex('#8a5c34');
+const GREENS = [hex('#0a4f35'), hex('#128a55'), hex('#2fbf7a'), hex('#86d86c')];   // 从树心的深绿到枝梢的嫩绿
+// 一根针叶。ang 是它所在枝条的朝向，画的时候会让针叶顺着枝条斜着长出去（而不是一个圆点）
+function needle(x, y, z, sd, ang) {
+  const g = Math.min(2.999, sd * 2.1 + rand() * 1.2), i0 = Math.floor(g);
+  const frosty = rand() < sd * sd * CONFIG.counts.frost * 0.6;
+  const col = frosty ? mul(mixc(C.blush, [1, 1, 1], 0.8), 0.34)
+                     : mul(mixc(GREENS[i0], GREENS[i0 + 1], g - i0), (0.1 + rand() * 0.22) * (0.3 + 0.7 * sd));
+  add(x, y, z, col, 0.1 + rand() * 0.07, 1, 10 + ((ang % TAU) + TAU) % TAU);
+  if (rand() < sd * sd * CONFIG.counts.frost)                           // 枝梢上落着的雪粒
+    add(x, y + 0.05, z, mul(mixc(C.blush, [1, 1, 1], 0.85), 0.3 + rand() * 0.4), 0.025 + rand() * 0.03, 1);
+}
 for (let k = 0; k < TIER_N; k++) {
   const tt = k / (TIER_N - 1);
-  const y0 = 0.75 + tt * 8.7;
-  const len = R * Math.pow(1 - y0 / H, 1.12) * 1.02 + 0.12;
-  const nb = Math.round(15 - 9 * tt);
+  const y0 = 0.85 + tt * 8.5;
+  const len0 = R * Math.pow(1 - y0 / H, 1.12) * 1.04 + 0.12;
+  const nb = Math.round(17 - 11 * tt);
   for (let j = 0; j < nb; j++) {
-    const ang = (j + (k % 2) * 0.5) / nb * TAU + (rand() - 0.5) * 0.25;
+    const ang = (j + (k % 2) * 0.5) / nb * TAU + (rand() - 0.5) * 0.3;
     const ca = Math.cos(ang), sa = Math.sin(ang);
-    const n = Math.floor(CONFIG.counts.foliage * len + 30);
-    for (let i = 0; i < n; i++) {
-      const sd = Math.pow(rand(), 0.75);                              // 沿着树枝走了多远（0 = 树干，1 = 枝梢）
-      const off = gauss() * (0.08 + 0.44 * sd) * Math.min(len, 2.2) * 0.6;   // 向两侧散开的针叶
-      const r = sd * len;
-      const y = y0 - 0.38 * len * sd * sd - Math.abs(off) * 0.25 + gauss() * 0.06;
-      const frost = rand() < sd * 0.3;
-      const green = !frost && rand() < (sd < 0.55 ? 0.62 : 0.22);          // 靠里的针叶多是绿的，枝梢留给玫红
-      const col = frost ? mul(mixc(C.blush, [1, 1, 1], 0.6), 0.95)
-                : green ? mul(mixc(C.deepGreen, C.green, rand()), 0.4 + rand() * 0.7)
-                : mul(mixc(C.deepRose, C.rose, rand()), 0.45 + rand() * 0.7);
-      add(ca * r - sa * off, y, sa * r + ca * off, col, 0.028 + rand() * 0.034, 1);
+    const len = len0 * (0.88 + rand() * 0.2), droop = 0.34 + rand() * 0.14;
+    const yAt = sd => y0 + 0.12 * len * sd - droop * len * sd * sd;     // 树枝先微微上扬，再往下垂
+    // 主枝上的针叶
+    for (let i = 0, n = Math.floor(DENS * len + 10); i < n; i++) {
+      const sd = Math.pow(rand(), 0.85), off = gauss() * 0.03;
+      needle(ca * sd * len - sa * off, yAt(sd) + gauss() * 0.03, sa * sd * len + ca * off, sd, ang);
     }
-    // 叶片：真正画成叶子形状的大一点的粒子，散落在树枝的中段到枝梢
-    const nLeaf = Math.floor(CONFIG.counts.leaves * len / 3.5 + rand());
-    for (let i = 0; i < nLeaf; i++) {
-      const sd = 0.4 + rand() * 0.6, off = (rand() - 0.5) * 0.55 * Math.min(len, 2) * sd, r = sd * len;
-      add(ca * r - sa * off, y0 - 0.38 * len * sd * sd + 0.04, sa * r + ca * off,
-          mul(mixc(C.deepGreen, C.green, rand()), 0.5 + rand() * 0.45), 0.2 + rand() * 0.13, 1, 1);
+    // 小杈：左右交替，越靠近枝梢越短，整根树枝因此像一片羽毛
+    for (let q = 0, nt = Math.floor(3 + len * 3.2); q < nt; q++) {
+      const sdT = 0.12 + (q + rand() * 0.6) / nt * 0.83;
+      const a2 = ang + (q % 2 ? 1 : -1) * (0.75 + rand() * 0.25), c2 = Math.cos(a2), s2 = Math.sin(a2);
+      const lenT = len * (1 - sdT) * 0.55 + 0.14, bx = ca * sdT * len, bz = sa * sdT * len, by = yAt(sdT);
+      for (let i = 0, n = Math.floor(DENS * lenT + 3); i < n; i++) {
+        const u = Math.pow(rand(), 0.85), off = gauss() * 0.025;
+        needle(bx + c2 * u * lenT - s2 * off, by - 0.22 * lenT * u * u + gauss() * 0.03, bz + s2 * u * lenT + c2 * off, Math.min(1, sdT + (1 - sdT) * u), a2);
+      }
     }
   }
+}
+// 树干
+for (let i = 0; i < 1500; i++) {
+  const y = rand() * 9.3, ang = rand() * TAU, rr = 0.2 * Math.sqrt(rand()) * (1 - y / H * 0.85);
+  add(Math.cos(ang) * rr, y, Math.sin(ang) * rr, mul(WOOD, 0.4 + rand() * 0.5), 0.03 + rand() * 0.03, 1);
 }
 // 树尖上的一小簇金色
 for (let i = 0; i < 160; i++) {
@@ -352,7 +404,7 @@ vec3 helix(float q, float dir, float jr, float jy, float wScale, out float t) {
   t = 1.0 - sqrt(1.0 - q);
   float ang = dir * TURNS * 6.2831853 * pow(t, 0.8);
   float r = R * pow(1.0 - t, 1.12) + 0.04;
-  float w = (0.06 + 0.34 * (1.0 - t)) * wScale;
+  float w = (0.05 + 0.22 * (1.0 - t)) * wScale;
   float rr = r + jr * w;
   return vec3(cos(ang) * rr, H * t + jy * w * 0.5, sin(ang) * rr);
 }
@@ -417,7 +469,7 @@ void main() {
         vec3 s = snowfall(aScatter, ph, edge);
         p = mix(s, p, f);
         col = mix(vec3(0.85, 0.82, 0.84), col, f);
-        bright = mix(0.6 * edge * step(0.84, fract(ph * 7.13)) * (1.0 - leaf), bright, f);
+        bright = mix(0.6 * edge * step(0.7, fract(ph * 7.13)) * (1.0 - leaf), bright, f);
       }
     }
   } else if (type < 4.5) {               // 雪
@@ -454,6 +506,19 @@ void main() {
 
   vec4 clip = uVP * vec4(p, 1.0);
 
+  // 针叶的朝向：把它所在枝条的方向投影到屏幕上，再向两侧各偏开一点，就成了一排排斜着长的针叶
+  float nrot = ph * 6.2832;
+  if (leaf > 0.5 && ex > 9.0) {
+    float a = ex - 10.0;
+    vec3 d = vec3(cos(a), -0.32, sin(a));
+    d.xz = rot(uSpin) * d.xz;
+    if (uMirror > 0.0) d.y = -d.y;
+    vec4 c2 = uVP * vec4(p + d * 0.3, 1.0);
+    vec2 sdir = (c2.xy / max(c2.w, 0.001) - clip.xy / max(clip.w, 0.001)) * vec2(uAspect, 1.0);
+    float side = fract(ph * 13.7) < 0.5 ? 1.0 : -1.0;
+    nrot = atan(sdir.y, sdir.x) + side * (0.4 + 0.55 * fract(ph * 31.3)) + sin(uTime * 0.8 + ph * 20.0) * 0.05;
+  }
+
   // 远处的粒子暗一点，让前后层次更清楚
   if (tree || type > 6.5) bright *= mix(1.0, 0.45, smoothstep(uDist - 3.5, uDist + 3.5, clip.w));
 
@@ -476,7 +541,7 @@ void main() {
   gl_PointSize = clamp(px, 1.5, uMaxPt);
   vColor = col * bright * alpha * min(1.0, px / 1.5) * uGain;
   vShape = shape;
-  vRot = ph * 6.2832 + sin(uTime * 0.9 + ph * 20.0) * 0.25;           // 叶片的朝向，带一点轻轻的摆动
+  vRot = nrot;
 }`;
 
 const FS_POINTS = `#version 300 es
@@ -491,11 +556,11 @@ void main() {
   if (vShape < 0.5) a = exp(-d * 4.5) - 0.011 + 0.8 * exp(-d * 30.0);   // 细小的光点
   else if (vShape < 1.5) a = (1.0 - smoothstep(0.55, 1.0, d)) * 0.5;      // 虚化的光斑
   else if (vShape < 2.5) a = (exp(-d * 3.4) - 0.034) * 0.6 + 1.6 * exp(-d * 22.0);   // 灯：小而亮的灯芯 + 一圈柔光
-  else {                                                                 // 叶片：两头尖的叶子，中间一道叶脉
+  else {                                                                 // 针叶：一根两头尖的细条
     float c = cos(vRot), s = sin(vRot);
     vec2 q = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
-    float e = 0.42 * (1.0 - q.x * q.x) - abs(q.y);
-    a = smoothstep(0.0, 0.1, e) * (0.5 + 0.5 * smoothstep(0.0, 0.1, abs(q.y))) * 0.8 * step(abs(q.x), 0.98);
+    float e = 0.15 * (1.0 - q.x * q.x) - abs(q.y);
+    a = smoothstep(0.0, 0.08, e) * step(abs(q.x), 0.98);
   }
   if (a <= 0.0) discard;
   o = vec4(vColor * a, 1.0);
@@ -680,7 +745,7 @@ let pinch = 0;
 const hint = document.getElementById('hint');
 
 // 底部的提示：一条一条轮流出现，全部出现过一遍就不再打扰
-const HINTS = ['拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '在空白处双击，让树散开，照片会飘出来', '右下角「照片」可以添加照片，「手势」可以用手隔空控制'];
+const HINTS = ['拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '树上的小圆吊坠是照片，点一下可以放大', '在空白处双击，让树散开', '右下角「照片」可以添加照片，「手势」可以用手隔空控制'];
 if (!CONFIG.messages.length) HINTS.splice(1, 1);
 let hintIdx = 0, hintTimer = 0, hintCycle = 0;
 function showHint(text, ms) {
@@ -699,7 +764,7 @@ function toggleForm() {
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
   if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, 4200); }
-  else showHint('点照片可以放大 · 双击，让雪重新聚成树');
+  else showHint('玫红和金色的雪花是照片，点一下放大 · 双击，让雪重新聚成树');
 }
 canvas.addEventListener('dblclick', e => {
   // 在树上双击是在挂灯 / 点灯，不触发化雪
@@ -929,16 +994,14 @@ const db = {
   del(id) { return db.run('readwrite', s => s.delete(id)); }
 };
 
-// 还没有照片时的占位卡片：点它会打开「照片」面板
+// 还没有照片时的占位吊坠：一个小小的加号，点它会打开「照片」面板
 function placeholderURL(i) {
-  const c = document.createElement('canvas'); c.width = 320; c.height = 400;
-  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 320, 400);
-  gr.addColorStop(0, i % 2 ? '#3a0a22' : '#0c2a1d'); gr.addColorStop(1, '#060606');
-  g.fillStyle = gr; g.fillRect(0, 0, 320, 400);
-  g.strokeStyle = 'rgba(255,224,190,.6)'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(160, 160); g.lineTo(160, 220); g.moveTo(130, 190); g.lineTo(190, 190); g.stroke();
-  g.fillStyle = 'rgba(255,224,190,.62)'; g.font = '22px -apple-system, "PingFang SC", sans-serif'; g.textAlign = 'center';
-  g.fillText('添加照片', 160, 270);
+  const c = document.createElement('canvas'); c.width = c.height = 160;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 160, 160);
+  gr.addColorStop(0, i % 2 ? '#4a0d2b' : '#0f3324'); gr.addColorStop(1, '#0a0a0a');
+  g.fillStyle = gr; g.fillRect(0, 0, 160, 160);
+  g.strokeStyle = 'rgba(255,224,190,.85)'; g.lineWidth = 6; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(80, 52); g.lineTo(80, 108); g.moveTo(52, 80); g.lineTo(108, 80); g.stroke();
   return c.toDataURL('image/jpeg', 0.85);
 }
 
@@ -962,18 +1025,27 @@ function fileToBlob(file) {
 const realPhotos = () => photos.filter(p => !p.placeholder);
 const userPhotos = () => photos.filter(p => !p.placeholder && !p.locked);
 
-// 根据照片列表，重新生成飘在画面里的卡片
+// 一片六角雪花的图案（散开时照片的样子）
+const FLAKE_SVG = '<svg viewBox="-12 -12 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">'
+  + [0, 60, 120, 180, 240, 300].map(a => '<path transform="rotate(' + a + ')" d="M0 0V-10.5M0 -6.2l-2.7 -2.3M0 -6.2l2.7 -2.3"/>').join('')
+  + '</g><circle r="1.7" fill="#fff"/></svg>';
+
+// 根据照片列表，重新生成画面里的吊坠 / 雪花
 function syncPhotos() {
   for (let i = photos.length - 1; i >= 0; i--) if (photos[i].placeholder) photos.splice(i, 1);
   if (!photos.length) for (let i = 0; i < 6; i++) photos.push({ url: placeholderURL(i), key: null, placeholder: true });
   photoBox.textContent = '';
   photos.forEach((ph, i) => {
-    const el = document.createElement('button'), img = document.createElement('img');
-    el.type = 'button'; el.className = 'ph'; el.setAttribute('aria-label', ph.placeholder ? '添加照片' : '放大照片');
-    img.alt = ''; img.src = ph.url; img.draggable = false;
-    el.appendChild(img);
-    el.addEventListener('click', () => openLightbox(photos.indexOf(ph), el));
-    ph.el = el; ph.tilt = ((i * 0.7548) % 1 - 0.5) * 14; ph.depth = 99;
+    const el = document.createElement('button'), thread = document.createElement('i'), disc = document.createElement('span');
+    const img = document.createElement('img'), flake = document.createElement('span');
+    el.type = 'button'; el.className = i % 2 ? 'ph gold' : 'ph'; el.setAttribute('aria-label', ph.placeholder ? '添加照片' : '放大照片');
+    thread.className = 'thread'; disc.className = 'disc'; flake.className = 'flake'; flake.innerHTML = FLAKE_SVG;
+    img.alt = ''; img.draggable = false;
+    img.onload = () => { ph.aspect = img.naturalWidth / Math.max(1, img.naturalHeight); };
+    img.src = ph.url;
+    disc.appendChild(img); el.appendChild(thread); el.appendChild(disc); el.appendChild(flake);
+    el.addEventListener('click', () => openLightbox(photos.indexOf(ph), (ph.e > 0.5 ? flake : disc).getBoundingClientRect()));
+    ph.el = el; ph.disc = disc; ph.flake = flake; ph.depth = 99; ph.e = 1;
     photoBox.appendChild(el);
   });
   renderPanel();
@@ -1040,66 +1112,114 @@ document.getElementById('photoBtn').addEventListener('click', openPanel);
 document.getElementById('panelClose').addEventListener('click', closePanel);
 panel.addEventListener('click', e => { if (e.target === panel) closePanel(); });
 
-// ---- 点照片放大：从它原来的位置"飞"到屏幕中间 ----
+// ---- 点照片放大：从它原来的位置"飞"到灯光下，像一幅装裱好的艺术照 ----
+const art = document.getElementById('art');
 let lbIndex = -1;
-function openLightbox(i, fromEl) {
+function openLightbox(i, from) {
   const ph = photos[i];
   if (!ph) return;
   if (ph.placeholder) { openPanel(); return; }
   lbIndex = i; lightbox.hidden = false; lightbox.classList.remove('on');
-  lbImg.style.transition = 'none'; lbImg.style.transform = '';
+  lightbox.classList.toggle('multi', realPhotos().length > 1);
+  art.style.transition = 'none'; art.style.transform = '';
   const start = () => {
-    if (fromEl) {
-      const a = fromEl.getBoundingClientRect(), b = lbImg.getBoundingClientRect();
-      if (a.width && b.width) lbImg.style.transform = 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + (a.width / b.width) + ')';
+    const b = art.getBoundingClientRect();
+    if (from && from.width && b.width) {
+      art.style.transform = 'translate(' + (from.left + from.width / 2 - b.left - b.width / 2) + 'px,' + (from.top + from.height / 2 - b.top - b.height / 2) + 'px) scale(' + Math.max(0.03, from.width / b.width) + ')';
     }
-    lbImg.getBoundingClientRect();                                     // 让浏览器先记住起点，再开始过渡
-    lbImg.style.transition = ''; lbImg.style.transform = ''; lightbox.classList.add('on');
+    art.getBoundingClientRect();                                       // 让浏览器先记住起点，再开始过渡
+    art.style.transition = ''; art.style.transform = ''; lightbox.classList.add('on');
+    layoutSides(b);
   };
   lbImg.onload = start; lbImg.src = ph.url;
   if (lbImg.complete && lbImg.naturalWidth) { lbImg.onload = null; start(); }
 }
 function closeLightbox() {
   if (lightbox.hidden) return;
-  lightbox.classList.remove('on'); lbIndex = -1; G.lb = false;
-  setTimeout(() => { if (!lightbox.classList.contains('on')) lightbox.hidden = true; }, 360);
+  lightbox.classList.remove('on'); lbIndex = -1; G.lb = false; sideBox.textContent = '';
+  setTimeout(() => { if (!lightbox.classList.contains('on')) lightbox.hidden = true; }, 460);
 }
 function stepLightbox(dir) {
   const real = photos.map((p, i) => p.placeholder ? -1 : i).filter(i => i >= 0);
   if (real.length < 2) return;
   const next = real[(real.indexOf(lbIndex) + dir + real.length) % real.length];
-  lbIndex = next; lbImg.src = photos[next].url;
+  showInLightbox(next);
+}
+function showInLightbox(i) {
+  lbIndex = i; sideBox.textContent = '';
+  lbImg.onload = () => layoutSides(art.getBoundingClientRect());
+  lbImg.src = photos[i].url;
+  if (lbImg.complete && lbImg.naturalWidth) { lbImg.onload = null; layoutSides(art.getBoundingClientRect()); }
+}
+
+// 艺术排列：主照片装框居中，前后几张照片像展墙上的小幅作品一样，高低错落、微微倾斜地摆在两侧
+const sideBox = document.getElementById('sides');
+function layoutSides(fr) {
+  sideBox.textContent = '';
+  const real = photos.map((p, i) => p.placeholder ? -1 : i).filter(i => i >= 0);
+  const pos = real.indexOf(lbIndex);
+  if (pos < 0 || real.length < 2 || !fr.width) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const narrow = vw < 720 || vw < vh;                                   // 手机竖屏：两侧放不下，改成摆在主照片下面
+  const base = narrow ? vh * 0.15 : Math.min(fr.height * 0.48, vh * 0.3);
+  const used = new Set([pos]);
+  [-1, 1].forEach(side => {
+    let edge = narrow ? vw / 2 : (side < 0 ? fr.left : fr.right);
+    for (let k = 1; k <= 3; k++) {
+      const idx = ((pos + side * k) % real.length + real.length) % real.length;
+      if (used.has(idx)) break;
+      const ph = photos[real[idx]], h = base * (1 - 0.13 * (k - 1)), w = h * Math.min(1.6, Math.max(0.6, ph.aspect || 0.8));
+      // 第一张有一小部分藏在主画框后面，后面的再依次叠出去，像随手摆开的一组作品
+      const cx = edge + side * (w * 0.5 - (narrow ? (k === 1 ? -4 : w * 0.18) : w * 0.2));
+      if (cx - w / 2 < -w * 0.45 || cx + w / 2 > vw + w * 0.45) break;   // 屏幕放不下就不摆了
+      used.add(idx); edge = cx + side * w * 0.5;
+      const cy = narrow ? fr.bottom + h * 0.62 + (k % 2 ? 0 : h * 0.12)
+                        : fr.top + fr.height * (k % 2 ? 0.33 : 0.7) + side * vh * 0.015;
+      const el = document.createElement('button'), im = document.createElement('img');
+      el.type = 'button'; el.className = 'side'; el.setAttribute('aria-label', '看这张照片');
+      im.src = ph.url; im.alt = ''; el.appendChild(im);
+      el.style.cssText = 'left:' + (cx - w / 2).toFixed(1) + 'px;top:' + (cy - h / 2).toFixed(1) + 'px;width:' + w.toFixed(1) + 'px;z-index:' + (10 - k)
+        + ';transform:rotate(' + (side * (k % 2 ? -4 : 5) - 1).toFixed(1) + 'deg);--o:' + (0.86 - 0.2 * (k - 1)).toFixed(2);
+      el.addEventListener('click', e => { e.stopPropagation(); showInLightbox(real[idx]); });
+      sideBox.appendChild(el);
+    }
+  });
 }
 lightbox.addEventListener('click', closeLightbox);
 
-// 每一帧：算出每张照片在屏幕上的位置和大小
+// 每一帧：算出每张照片在屏幕上的位置、大小，以及它此刻是"吊坠"还是"雪花"
 function updatePhotos(vp) {
   const spread = 1 - form;
-  if (spread < 0.03 || !photos.length) { if (photoBox.style.display !== 'none') photoBox.style.display = 'none'; return; }
-  if (photoBox.style.display === 'none') photoBox.style.display = '';
   const cw = canvas.clientWidth, ch = canvas.clientHeight, pxPerUnit = ch / (2 * Math.tan(FOV / 2));
   const c = Math.cos(spin), s = Math.sin(spin);
   for (let i = 0; i < photos.length; i++) {
     const ph = photos[i];
-    if (!ph.el) continue;                                              // 这张照片还在添加中，卡片还没生成
+    if (!ph.el) continue;                                              // 这张照片还在添加中，元素还没生成
     const st = ph.el.style;
-    const e = smooth(0, 1, spread * 1.5 - (i % 6) / 6 * 0.5);          // 一张接一张地飘出来
+    const e = smooth(0, 1, spread * 1.5 - (i % 6) / 6 * 0.5);          // 0 = 挂在树上，1 = 飘在空中；一张接一张地变
     const a0 = i * 2.39996, f1 = (i * 0.618034) % 1, f2 = (i * 0.37) % 1;
-    // 起点：藏在树身里；终点：围着树慢慢转的一圈
-    const hy = 1.5 + f1 * 6.5, hr = coneR(hy) * 0.7, hx0 = Math.cos(a0) * hr, hz0 = Math.sin(a0) * hr;
+    // 树上的位置：挂在枝梢下面，跟着树一起转
+    const hy = 1.7 + f1 * 6.0, hr = coneR(hy) * 0.97 + 0.1, hx0 = Math.cos(a0) * hr, hz0 = Math.sin(a0) * hr;
     const hx = c * hx0 + s * hz0, hz = -s * hx0 + c * hz0;
-    const a = a0 + time * 0.03, rr = 6.5 + f2 * 4, sy = 1.8 + f1 * 7.2 + Math.sin(time * 0.5 + i * 1.3) * 0.3;
+    // 空中的位置：围着树慢慢转，上下轻轻浮动
+    const a = a0 + time * 0.03, rr = 6.5 + f2 * 4, sy = 1.8 + f1 * 7.2 + Math.sin(time * 0.5 + i * 1.3) * 0.35;
     const x = hx + (Math.cos(a) * rr - hx) * e, y = hy + (sy - hy) * e, z = hz + (Math.sin(a) * rr - hz) * e;
     const X = vp[0] * x + vp[4] * y + vp[8] * z + vp[12], Y = vp[1] * x + vp[5] * y + vp[9] * z + vp[13], Wc = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
-    ph.depth = Wc;
-    if (Wc < 2 || e < 0.01) { st.opacity = 0; st.pointerEvents = 'none'; continue; }
+    ph.depth = Wc; ph.e = e;
+    if (Wc < 2) { st.opacity = 0; ph.disc.style.pointerEvents = ph.flake.style.pointerEvents = 'none'; continue; }
     const px = (X / Wc * 0.5 + 0.5) * cw, py = (1 - (Y / Wc * 0.5 + 0.5)) * ch;
-    const sc = Math.min(3, PHOTO_WORLD * pxPerUnit / Wc / PHOTO_W) * (0.12 + 0.88 * e);
-    const tilt = ph.tilt + Math.sin(time * 0.4 + i * 1.7) * 3;
-    st.transform = 'translate(' + px.toFixed(1) + 'px,' + py.toFixed(1) + 'px) translate(-50%,-50%) scale(' + sc.toFixed(3) + ') rotate(' + tilt.toFixed(2) + 'deg)';
-    st.opacity = (e * (1 - 0.5 * smooth(camDist - 2, camDist + 9, Wc))).toFixed(3);   // 远处的照片暗一些
+    const back = smooth(camDist - 0.4, camDist + 1.6, Wc) * (1 - e);   // 转到树背面的吊坠：变暗、点不到
+    const pendantScale = Math.min(2.4, 0.66 * pxPerUnit / Wc / 46);    // 吊坠的照片直径约 0.66 个单位
+    const flakeScale = 0.7 + 9 / Wc;                                   // 雪花：近处的稍大一点
+    const sc = pendantScale + (flakeScale - pendantScale) * e;
+    const rot = Math.sin(time * 1.3 + i * 2.1) * 6 * (1 - e) + time * 16 * (i % 2 ? 1 : -1) * e;   // 吊坠轻轻摆，雪花慢慢转
+    const twinkle = 1 - e * (0.22 + 0.22 * Math.sin(time * 2.3 + i * 4.1));
+    st.transform = 'translate(' + px.toFixed(1) + 'px,' + py.toFixed(1) + 'px) rotate(' + rot.toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
+    st.opacity = ((1 - 0.8 * back) * (1 - 0.4 * e * smooth(camDist - 2, camDist + 9, Wc)) * twinkle).toFixed(3);
     st.zIndex = (2000 - Wc * 20) | 0;
-    st.pointerEvents = e > 0.6 ? 'auto' : 'none';
+    st.setProperty('--e', e.toFixed(3));
+    ph.disc.style.pointerEvents = e < 0.3 && back < 0.5 ? 'auto' : 'none';
+    ph.flake.style.pointerEvents = e > 0.7 ? 'auto' : 'none';
   }
 }
 
@@ -1180,11 +1300,11 @@ function gestureTick() {
   if (G.count !== 3) return;                                                   // 同一个手势连续认出 3 次才算数，避免误触
   if (name === 'Open_Palm' && formTarget > 0.5 && form >= 1) toggleForm();
   else if (name === 'Closed_Fist') { closeLightbox(); if (formTarget < 0.5) toggleForm(); }
-  else if (name === 'Pointing_Up' && formTarget < 0.5 && form < 0.2 && lightbox.hidden) {
+  else if (name === 'Pointing_Up' && (form >= 1 || form <= 0) && lightbox.hidden) {
     // 伸出食指：把离镜头最近的那张照片放大
     let best = -1;
     photos.forEach((p, i) => { if (!p.placeholder && p.depth > 2 && (best < 0 || p.depth < photos[best].depth)) best = i; });
-    if (best >= 0) { openLightbox(best, photos[best].el); G.lb = true; }
+    if (best >= 0) { const p = photos[best]; openLightbox(best, (p.e > 0.5 ? p.flake : p.disc).getBoundingClientRect()); G.lb = true; }
   }
 }
 
