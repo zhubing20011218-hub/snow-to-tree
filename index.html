@@ -59,6 +59,71 @@
   .tools button:focus-visible { outline: 1px solid rgba(255, 207, 107, .8); outline-offset: 3px; }
   @media (max-width: 760px) { .hint { bottom: max(52px, calc(env(safe-area-inset-bottom) + 40px)); } .tools { left: 0; right: 0; justify-content: center; } }
 
+  .title, .hint, .tools, #msg { z-index: 10; }
+
+  /* 散开时飘出来的照片 */
+  #photos { position: fixed; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+  .ph {
+    position: absolute; left: 0; top: 0; width: 160px; padding: 0; border: 0; background: #0b0b0b;
+    border-radius: 4px; overflow: hidden; cursor: zoom-in; opacity: 0; will-change: transform, opacity;
+    box-shadow: 0 0 0 1px rgba(255, 224, 190, .32), 0 0 26px rgba(255, 47, 134, .22);
+  }
+  .ph img { display: block; width: 100%; height: auto; pointer-events: none; }
+  .ph:focus-visible { outline: 2px solid #ffcf6b; outline-offset: 3px; }
+
+  /* 点开放大 */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0); transition: background .35s ease; cursor: zoom-out;
+  }
+  #lightbox[hidden] { display: none; }
+  #lightbox.on { background: rgba(0, 0, 0, .86); }
+  #lbImg {
+    max-width: 86vw; max-height: 84vh; border-radius: 4px; opacity: 0;
+    box-shadow: 0 0 0 1px rgba(255, 224, 190, .3), 0 0 60px rgba(255, 47, 134, .25);
+    transition: transform .5s cubic-bezier(.2, .8, .2, 1), opacity .25s ease;
+  }
+  #lightbox.on #lbImg { opacity: 1; }
+
+  /* 照片管理面板 */
+  #panel {
+    position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, .6); padding: 16px;
+  }
+  #panel[hidden] { display: none; }
+  .sheet {
+    width: min(560px, 100%); max-height: min(78vh, 640px); display: flex; flex-direction: column;
+    background: rgba(14, 14, 16, .94); border: 1px solid rgba(255, 255, 255, .09); border-radius: 14px;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: #f4e3c8;
+  }
+  .sheet header { display: flex; align-items: baseline; gap: 12px; padding: 18px 20px 12px; }
+  .sheet h2 { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: .3em; }
+  .sheet header span { font-size: 11px; color: rgba(255, 255, 255, .4); letter-spacing: .1em; }
+  .sheet header button { margin-left: auto; font: inherit; font-size: 12px; letter-spacing: .2em; color: rgba(255, 255, 255, .6); background: none; border: 0; cursor: pointer; padding: 6px; }
+  .sheet header button:hover { color: #fff; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; padding: 4px 20px 16px; overflow-y: auto; }
+  .tile { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #0a0a0a; border: 1px solid rgba(255, 255, 255, .08); }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile .acts { position: absolute; left: 0; right: 0; bottom: 0; display: flex; background: rgba(0, 0, 0, .62); }
+  .tile .acts button, .tile .tag { flex: 1; font: inherit; font-size: 11px; letter-spacing: .12em; color: rgba(255, 255, 255, .82); background: none; border: 0; padding: 7px 0; cursor: pointer; text-align: center; }
+  .tile .acts button:hover { color: #ffcf6b; }
+  .tile .acts button + button { border-left: 1px solid rgba(255, 255, 255, .12); }
+  .tile .tag { cursor: default; color: rgba(255, 255, 255, .45); }
+  .tile.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 12px; letter-spacing: .14em; color: rgba(255, 207, 107, .9); border: 1px dashed rgba(255, 207, 107, .5); background: rgba(255, 207, 107, .04); cursor: pointer; }
+  .tile.add:hover { background: rgba(255, 207, 107, .1); }
+  .tile.add b { font-size: 26px; font-weight: 300; line-height: 1; }
+  .sheet footer { padding: 12px 20px 18px; font-size: 11px; line-height: 1.8; color: rgba(255, 255, 255, .42); border-top: 1px solid rgba(255, 255, 255, .06); }
+  .sheet button:focus-visible, .tile.add:focus-visible { outline: 1px solid #ffcf6b; outline-offset: 2px; }
+
+  /* 手势：左下角的小摄像头画面 */
+  #cam {
+    position: fixed; left: clamp(14px, 3vw, 34px); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 10;
+    width: 132px; height: 99px; object-fit: cover; transform: scaleX(-1); border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, .14); opacity: 0; pointer-events: none; transition: opacity .5s ease;
+  }
+  #cam.on { opacity: .55; }
+  @media (max-width: 760px) { #cam { bottom: 96px; width: 96px; height: 72px; } }
+
   #fallback {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     padding: 24px; text-align: center; line-height: 1.8; color: #f4e3c8;
@@ -76,10 +141,25 @@
 
 <div id="msg"></div>
 <div class="hint gone" id="hint"></div>
+<div id="photos" style="display:none"></div>
+<video id="cam" playsinline muted></video>
 <div class="tools">
+  <button id="gestureBtn" type="button">手势</button>
+  <button id="photoBtn" type="button">照片</button>
   <button id="soundBtn" type="button">声音 开</button>
   <button id="resetBtn" type="button">重新装饰</button>
 </div>
+
+<div id="lightbox" hidden><img id="lbImg" alt=""></div>
+
+<div id="panel" hidden>
+  <div class="sheet" role="dialog" aria-label="照片">
+    <header><h2>照片</h2><span id="photoCount"></span><button id="panelClose" type="button">完成</button></header>
+    <div id="grid"></div>
+    <footer>树散开的时候，这些照片会飘出来，点一下可以放大。<br>照片只保存在这台电脑的这个浏览器里，不会上传到任何地方。</footer>
+  </div>
+</div>
+<input type="file" id="file" accept="image/*" multiple hidden>
 
 <div id="fallback" hidden>这个浏览器不支持 WebGL2，请换用新版 Chrome、Edge 或 Safari 打开。</div>
 
@@ -93,25 +173,25 @@ const CONFIG = {
   title: 'Merry Christmas,',         // 左边的标题
   subtitle: 'FOR YOU',               // 标题下面的小字，可以改成她的名字
 
-  messages: [                        // 藏在金色灯里的话：一句话一盏灯，点一下灯就会显示（最多 16 句）
-    '圣诞快乐',
-    '愿你每天都开心',
-    '今晚的雪是为你下的',
-    '想要的都会来',
-    '新的一年，平安喜乐'
-  ],
+  messages: [],                      // 想在树上藏几句话时再填，例如 ['圣诞快乐']：每句话是一盏金灯，点一下显示
+
+  photos: [],                        // 想把照片和网页一起发给别人时用：把照片放进 photos 文件夹，在这里写 ['photos/1.jpg', 'photos/2.jpg']
+                                     // 平时不用填，直接点页面右下角的「照片」按钮添加就行
 
   colors: {                          // 颜色（网页常用的 #十六进制 写法）
     rose:     '#ff2f86',             // 玫红（主色）
     deepRose: '#c2185b',             // 深玫红
     blush:    '#ffb3cf',             // 浅粉
-    gold:     '#ffcf6b'              // 金色
+    gold:     '#ffcf6b',             // 金色
+    green:    '#2fbf7a',             // 绿叶
+    deepGreen:'#0e6b47'              // 深绿
   },
 
   counts: {                          // 粒子数量（电脑卡顿就把数字调小）
     ribbon: 34000,                   // 玫红色的螺旋树
     thread: 9000,                    // 反向缠绕的金线
     dust: 5000,                      // 树身周围的浮尘
+    leaves: 4,                       // 每根长树枝上的叶片数
     foliage: 210,                    // 每根树枝的粒子密度
     snow: 6500                       // 雪
   },
@@ -163,7 +243,7 @@ function add(x, y, z, col, size, type, extra) {
 for (let i = 0; i < CONFIG.counts.ribbon; i++) {
   const stray = rand() < 0.2 ? 2.4 : 1;                 // 少量粒子飘得更散，像扬起的雪粉
   const k = rand();
-  let col = k < 0.45 ? mixc(C.rose, C.blush, rand()) : k < 0.8 ? mixc(C.blush, [1, 1, 1], rand() * 0.6) : C.gold;
+  let col = k < 0.62 ? mixc(C.rose, C.blush, rand() * 0.7) : k < 0.84 ? mixc(C.blush, [1, 1, 1], rand() * 0.5) : C.gold;
   const gain = (0.16 + Math.pow(rand(), 2) * 0.85) / (stray > 1 ? 1.6 : 1);
   add(rand(), gauss() * stray, gauss() * stray, mul(col, gain), 0.03 + Math.pow(rand(), 3) * 0.05, 0);
 }
@@ -190,8 +270,18 @@ for (let k = 0; k < TIER_N; k++) {
       const r = sd * len;
       const y = y0 - 0.38 * len * sd * sd - Math.abs(off) * 0.25 + gauss() * 0.06;
       const frost = rand() < sd * 0.3;
-      const col = frost ? mul(mixc(C.blush, [1, 1, 1], 0.6), 0.95) : mul(mixc(C.deepRose, C.rose, rand()), 0.35 + rand() * 0.6);
+      const green = !frost && rand() < (sd < 0.55 ? 0.62 : 0.22);          // 靠里的针叶多是绿的，枝梢留给玫红
+      const col = frost ? mul(mixc(C.blush, [1, 1, 1], 0.6), 0.95)
+                : green ? mul(mixc(C.deepGreen, C.green, rand()), 0.4 + rand() * 0.7)
+                : mul(mixc(C.deepRose, C.rose, rand()), 0.45 + rand() * 0.7);
       add(ca * r - sa * off, y, sa * r + ca * off, col, 0.028 + rand() * 0.034, 1);
+    }
+    // 叶片：真正画成叶子形状的大一点的粒子，散落在树枝的中段到枝梢
+    const nLeaf = Math.floor(CONFIG.counts.leaves * len / 3.5 + rand());
+    for (let i = 0; i < nLeaf; i++) {
+      const sd = 0.4 + rand() * 0.6, off = (rand() - 0.5) * 0.55 * Math.min(len, 2) * sd, r = sd * len;
+      add(ca * r - sa * off, y0 - 0.38 * len * sd * sd + 0.04, sa * r + ca * off,
+          mul(mixc(C.deepGreen, C.green, rand()), 0.5 + rand() * 0.45), 0.2 + rand() * 0.13, 1, 1);
     }
   }
 }
@@ -250,6 +340,7 @@ uniform vec3 uGold;
 uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseAge, uAspect, uDist;
 out vec3 vColor;
 flat out float vShape;
+flat out float vRot;
 
 const float H = ${H.toFixed(1)}, R = ${R.toFixed(2)}, TURNS = ${TURNS.toFixed(1)}, STAR_Y = ${STAR_Y.toFixed(2)};
 const float SNOW_W = ${SNOW_W.toFixed(1)}, SNOW_H = ${SNOW_H.toFixed(1)};
@@ -282,6 +373,7 @@ void main() {
   vec3 p = aPos, col = aColor;
   float bright = 1.0, alpha = 1.0;
   bool tree = type < 3.5;
+  float leaf = (type > 0.5 && type < 1.5 && ex > 0.5) ? 1.0 : 0.0;
 
   if (tree) {
     float q = 0.0, t = 0.0;
@@ -325,7 +417,7 @@ void main() {
         vec3 s = snowfall(aScatter, ph, edge);
         p = mix(s, p, f);
         col = mix(vec3(0.85, 0.82, 0.84), col, f);
-        bright = mix(0.6 * edge * step(0.84, fract(ph * 7.13)), bright, f);
+        bright = mix(0.6 * edge * step(0.84, fract(ph * 7.13)) * (1.0 - leaf), bright, f);
       }
     }
   } else if (type < 4.5) {               // 雪
@@ -376,6 +468,7 @@ void main() {
   float px = size * uPx / max(clip.w, 0.1);
   float shape = 0.0;
   if (type > 6.5) shape = 2.0;
+  else if (leaf > 0.5) shape = 3.0;
   else if (px > 12.0) {                  // 离镜头很近的粒子：虚化成淡淡的光斑，太近的直接淡出
     shape = 1.0;
     bright *= pow(12.0 / px, 2.0) * (1.0 - smoothstep(uMaxPt * 0.55, uMaxPt, px));
@@ -383,19 +476,27 @@ void main() {
   gl_PointSize = clamp(px, 1.5, uMaxPt);
   vColor = col * bright * alpha * min(1.0, px / 1.5) * uGain;
   vShape = shape;
+  vRot = ph * 6.2832 + sin(uTime * 0.9 + ph * 20.0) * 0.25;           // 叶片的朝向，带一点轻轻的摆动
 }`;
 
 const FS_POINTS = `#version 300 es
 precision highp float;
 in vec3 vColor;
 flat in float vShape;
+flat in float vRot;
 out vec4 o;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = dot(p, p), a;
   if (vShape < 0.5) a = exp(-d * 4.5) - 0.011 + 0.8 * exp(-d * 30.0);   // 细小的光点
   else if (vShape < 1.5) a = (1.0 - smoothstep(0.55, 1.0, d)) * 0.5;      // 虚化的光斑
-  else a = (exp(-d * 3.4) - 0.034) * 0.6 + 1.6 * exp(-d * 22.0);         // 灯：小而亮的灯芯 + 一圈柔光
+  else if (vShape < 2.5) a = (exp(-d * 3.4) - 0.034) * 0.6 + 1.6 * exp(-d * 22.0);   // 灯：小而亮的灯芯 + 一圈柔光
+  else {                                                                 // 叶片：两头尖的叶子，中间一道叶脉
+    float c = cos(vRot), s = sin(vRot);
+    vec2 q = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
+    float e = 0.42 * (1.0 - q.x * q.x) - abs(q.y);
+    a = smoothstep(0.0, 0.1, e) * (0.5 + 0.5 * smoothstep(0.0, 0.1, abs(q.y))) * 0.8 * step(abs(q.x), 0.98);
+  }
   if (a <= 0.0) discard;
   o = vec4(vColor * a, 1.0);
 }`;
@@ -579,7 +680,7 @@ let pinch = 0;
 const hint = document.getElementById('hint');
 
 // 底部的提示：一条一条轮流出现，全部出现过一遍就不再打扰
-const HINTS = ['拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '在空白处双击，让树化成雪'];
+const HINTS = ['拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '在空白处双击，让树散开，照片会飘出来', '右下角「照片」可以添加照片，「手势」可以用手隔空控制'];
 if (!CONFIG.messages.length) HINTS.splice(1, 1);
 let hintIdx = 0, hintTimer = 0, hintCycle = 0;
 function showHint(text, ms) {
@@ -598,14 +699,20 @@ function toggleForm() {
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
   if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, 4200); }
-  else showHint('双击，让雪重新聚成树');
+  else showHint('点照片可以放大 · 双击，让雪重新聚成树');
 }
 canvas.addEventListener('dblclick', e => {
   // 在树上双击是在挂灯 / 点灯，不触发化雪
   if (formTarget > 0.5 && form >= 1 && (pickLight(e.clientX, e.clientY) || pickTree(e.clientX, e.clientY))) return;
   toggleForm();
 });
-window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); toggleForm(); } });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Escape') { closeLightbox(); closePanel(); return; }
+  if (!lightbox.hidden && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { stepLightbox(e.code === 'ArrowRight' ? 1 : -1); return; }
+  if (e.code !== 'Space' || (e.target.closest && e.target.closest('button, input'))) return;
+  e.preventDefault();
+  if (!lightbox.hidden) closeLightbox(); else if (panel.hidden) toggleForm();
+});
 
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
@@ -785,6 +892,302 @@ resetBtn.addEventListener('click', () => {                             // 要点
   lights.length = PRESET_COUNT; saveLights();
 });
 
+/* ============================ 照片 ============================ */
+// 照片用普通的网页图片来显示（而不是画进 3D 画布），这样直接双击打开网页也能正常加载；
+// 每一帧根据它在 3D 空间里的位置，算出它在屏幕上该出现在哪、该多大。
+const photoBox = document.getElementById('photos'), lightbox = document.getElementById('lightbox'), lbImg = document.getElementById('lbImg');
+const panel = document.getElementById('panel'), grid = document.getElementById('grid'), fileEl = document.getElementById('file');
+const MAX_PHOTOS = 24, PHOTO_W = 160, PHOTO_WORLD = 2.3;
+const photos = [];                       // { url, key, locked, placeholder, el, tilt, depth }
+
+// 浏览器自带的小数据库，用来把用户添加的照片存下来（存不了也没关系，只是刷新后要重新加）
+const db = {
+  h: null,
+  open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('snowtree', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+        r.onsuccess = () => { db.h = r.result; res(true); };
+        r.onerror = () => res(false);
+      } catch (e) { res(false); }
+    });
+  },
+  run(mode, fn) {
+    return new Promise(res => {
+      if (!db.h) return res(null);
+      try {
+        const tx = db.h.transaction('photos', mode), rq = fn(tx.objectStore('photos'));
+        tx.oncomplete = () => res(rq ? rq.result : null);
+        tx.onerror = tx.onabort = () => res(null);
+      } catch (e) { res(null); }
+    });
+  },
+  all() { return db.run('readonly', s => s.getAll()); },
+  add(blob) { return db.run('readwrite', s => s.add({ blob })); },
+  put(id, blob) { return db.run('readwrite', s => s.put({ id, blob })); },
+  del(id) { return db.run('readwrite', s => s.delete(id)); }
+};
+
+// 还没有照片时的占位卡片：点它会打开「照片」面板
+function placeholderURL(i) {
+  const c = document.createElement('canvas'); c.width = 320; c.height = 400;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 320, 400);
+  gr.addColorStop(0, i % 2 ? '#3a0a22' : '#0c2a1d'); gr.addColorStop(1, '#060606');
+  g.fillStyle = gr; g.fillRect(0, 0, 320, 400);
+  g.strokeStyle = 'rgba(255,224,190,.6)'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(160, 160); g.lineTo(160, 220); g.moveTo(130, 190); g.lineTo(190, 190); g.stroke();
+  g.fillStyle = 'rgba(255,224,190,.62)'; g.font = '22px -apple-system, "PingFang SC", sans-serif'; g.textAlign = 'center';
+  g.fillText('添加照片', 160, 270);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+// 把手机 / 相机拍的大图缩小到合适的尺寸再保存，省空间也更流畅
+function fileToBlob(file) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => res(b), 'image/jpeg', 0.86);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(null); };   // 浏览器打不开的格式（比如部分 HEIC）就跳过
+    img.src = url;
+  });
+}
+
+const realPhotos = () => photos.filter(p => !p.placeholder);
+const userPhotos = () => photos.filter(p => !p.placeholder && !p.locked);
+
+// 根据照片列表，重新生成飘在画面里的卡片
+function syncPhotos() {
+  for (let i = photos.length - 1; i >= 0; i--) if (photos[i].placeholder) photos.splice(i, 1);
+  if (!photos.length) for (let i = 0; i < 6; i++) photos.push({ url: placeholderURL(i), key: null, placeholder: true });
+  photoBox.textContent = '';
+  photos.forEach((ph, i) => {
+    const el = document.createElement('button'), img = document.createElement('img');
+    el.type = 'button'; el.className = 'ph'; el.setAttribute('aria-label', ph.placeholder ? '添加照片' : '放大照片');
+    img.alt = ''; img.src = ph.url; img.draggable = false;
+    el.appendChild(img);
+    el.addEventListener('click', () => openLightbox(photos.indexOf(ph), el));
+    ph.el = el; ph.tilt = ((i * 0.7548) % 1 - 0.5) * 14; ph.depth = 99;
+    photoBox.appendChild(el);
+  });
+  renderPanel();
+}
+
+async function addPhotoBlob(blob) {
+  if (!blob || userPhotos().length >= MAX_PHOTOS) return false;
+  const key = await db.add(blob);
+  photos.push({ url: URL.createObjectURL(blob), key: typeof key === 'number' ? key : null });
+  return true;
+}
+
+// ---- 「照片」面板：添加、替换、删除 ----
+let replaceTarget = null;
+function pickFiles(target) { replaceTarget = target; fileEl.multiple = !target; fileEl.value = ''; fileEl.click(); }
+fileEl.addEventListener('change', async () => {
+  const files = [...fileEl.files];
+  if (!files.length) return;
+  if (replaceTarget) {
+    const ph = replaceTarget, blob = await fileToBlob(files[0]);
+    if (blob) {
+      if (ph.key !== null) await db.put(ph.key, blob);
+      URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(blob);
+    }
+  } else {
+    for (const f of files) { if (userPhotos().length >= MAX_PHOTOS) break; await addPhotoBlob(await fileToBlob(f)); }
+  }
+  replaceTarget = null;
+  syncPhotos();
+});
+async function removePhoto(ph) {
+  if (ph.key !== null) await db.del(ph.key);
+  URL.revokeObjectURL(ph.url);
+  photos.splice(photos.indexOf(ph), 1);
+  syncPhotos();
+}
+function renderPanel() {
+  grid.textContent = '';
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  realPhotos().forEach(ph => {
+    const t = mk('div', 'tile'), im = mk('img'), acts = mk('div', 'acts');
+    im.src = ph.url; im.alt = '';
+    if (ph.locked) acts.appendChild(mk('span', 'tag', '来自文件夹'));
+    else {
+      const a = mk('button', '', '替换'), b = mk('button', '', '删除');
+      a.type = b.type = 'button';
+      a.addEventListener('click', () => pickFiles(ph));
+      b.addEventListener('click', () => removePhoto(ph));
+      acts.appendChild(a); acts.appendChild(b);
+    }
+    t.appendChild(im); t.appendChild(acts); grid.appendChild(t);
+  });
+  if (userPhotos().length < MAX_PHOTOS) {
+    const add = mk('button', 'tile add'); add.type = 'button';
+    add.appendChild(mk('b', '', '+')); add.appendChild(mk('span', '', '添加照片'));
+    add.addEventListener('click', () => pickFiles(null));
+    grid.appendChild(add);
+  }
+  document.getElementById('photoCount').textContent = realPhotos().length + ' 张 · 最多 ' + MAX_PHOTOS + ' 张';
+}
+function openPanel() { closeLightbox(); renderPanel(); panel.hidden = false; }
+function closePanel() { panel.hidden = true; }
+document.getElementById('photoBtn').addEventListener('click', openPanel);
+document.getElementById('panelClose').addEventListener('click', closePanel);
+panel.addEventListener('click', e => { if (e.target === panel) closePanel(); });
+
+// ---- 点照片放大：从它原来的位置"飞"到屏幕中间 ----
+let lbIndex = -1;
+function openLightbox(i, fromEl) {
+  const ph = photos[i];
+  if (!ph) return;
+  if (ph.placeholder) { openPanel(); return; }
+  lbIndex = i; lightbox.hidden = false; lightbox.classList.remove('on');
+  lbImg.style.transition = 'none'; lbImg.style.transform = '';
+  const start = () => {
+    if (fromEl) {
+      const a = fromEl.getBoundingClientRect(), b = lbImg.getBoundingClientRect();
+      if (a.width && b.width) lbImg.style.transform = 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + (a.width / b.width) + ')';
+    }
+    lbImg.getBoundingClientRect();                                     // 让浏览器先记住起点，再开始过渡
+    lbImg.style.transition = ''; lbImg.style.transform = ''; lightbox.classList.add('on');
+  };
+  lbImg.onload = start; lbImg.src = ph.url;
+  if (lbImg.complete && lbImg.naturalWidth) { lbImg.onload = null; start(); }
+}
+function closeLightbox() {
+  if (lightbox.hidden) return;
+  lightbox.classList.remove('on'); lbIndex = -1; G.lb = false;
+  setTimeout(() => { if (!lightbox.classList.contains('on')) lightbox.hidden = true; }, 360);
+}
+function stepLightbox(dir) {
+  const real = photos.map((p, i) => p.placeholder ? -1 : i).filter(i => i >= 0);
+  if (real.length < 2) return;
+  const next = real[(real.indexOf(lbIndex) + dir + real.length) % real.length];
+  lbIndex = next; lbImg.src = photos[next].url;
+}
+lightbox.addEventListener('click', closeLightbox);
+
+// 每一帧：算出每张照片在屏幕上的位置和大小
+function updatePhotos(vp) {
+  const spread = 1 - form;
+  if (spread < 0.03 || !photos.length) { if (photoBox.style.display !== 'none') photoBox.style.display = 'none'; return; }
+  if (photoBox.style.display === 'none') photoBox.style.display = '';
+  const cw = canvas.clientWidth, ch = canvas.clientHeight, pxPerUnit = ch / (2 * Math.tan(FOV / 2));
+  const c = Math.cos(spin), s = Math.sin(spin);
+  for (let i = 0; i < photos.length; i++) {
+    const ph = photos[i];
+    if (!ph.el) continue;                                              // 这张照片还在添加中，卡片还没生成
+    const st = ph.el.style;
+    const e = smooth(0, 1, spread * 1.5 - (i % 6) / 6 * 0.5);          // 一张接一张地飘出来
+    const a0 = i * 2.39996, f1 = (i * 0.618034) % 1, f2 = (i * 0.37) % 1;
+    // 起点：藏在树身里；终点：围着树慢慢转的一圈
+    const hy = 1.5 + f1 * 6.5, hr = coneR(hy) * 0.7, hx0 = Math.cos(a0) * hr, hz0 = Math.sin(a0) * hr;
+    const hx = c * hx0 + s * hz0, hz = -s * hx0 + c * hz0;
+    const a = a0 + time * 0.03, rr = 6.5 + f2 * 4, sy = 1.8 + f1 * 7.2 + Math.sin(time * 0.5 + i * 1.3) * 0.3;
+    const x = hx + (Math.cos(a) * rr - hx) * e, y = hy + (sy - hy) * e, z = hz + (Math.sin(a) * rr - hz) * e;
+    const X = vp[0] * x + vp[4] * y + vp[8] * z + vp[12], Y = vp[1] * x + vp[5] * y + vp[9] * z + vp[13], Wc = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+    ph.depth = Wc;
+    if (Wc < 2 || e < 0.01) { st.opacity = 0; st.pointerEvents = 'none'; continue; }
+    const px = (X / Wc * 0.5 + 0.5) * cw, py = (1 - (Y / Wc * 0.5 + 0.5)) * ch;
+    const sc = Math.min(3, PHOTO_WORLD * pxPerUnit / Wc / PHOTO_W) * (0.12 + 0.88 * e);
+    const tilt = ph.tilt + Math.sin(time * 0.4 + i * 1.7) * 3;
+    st.transform = 'translate(' + px.toFixed(1) + 'px,' + py.toFixed(1) + 'px) translate(-50%,-50%) scale(' + sc.toFixed(3) + ') rotate(' + tilt.toFixed(2) + 'deg)';
+    st.opacity = (e * (1 - 0.5 * smooth(camDist - 2, camDist + 9, Wc))).toFixed(3);   // 远处的照片暗一些
+    st.zIndex = (2000 - Wc * 20) | 0;
+    st.pointerEvents = e > 0.6 ? 'auto' : 'none';
+  }
+}
+
+// 启动时：读出配置里的照片和以前添加的照片
+(async () => {
+  CONFIG.photos.slice(0, MAX_PHOTOS).forEach(src => photos.push({ url: src, key: null, locked: true }));
+  syncPhotos();
+  if (await db.open()) {
+    const rows = await db.all() || [];
+    rows.slice(0, MAX_PHOTOS).forEach(r => { if (r && r.blob) photos.push({ url: URL.createObjectURL(r.blob), key: r.id }); });
+    if (rows.length) syncPhotos();
+  }
+})();
+
+/* ============================ 摄像头手势 ============================ */
+// 用 Google 的 MediaPipe 识别手势（和你之前试过的那个项目是同一套做法）。
+// 摄像头画面只在这台电脑上处理，不会发到任何地方；识别库和模型第一次使用时需要联网下载。
+const GESTURE_LIB = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const GESTURE_MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
+const camEl = document.getElementById('cam'), gestureBtn = document.getElementById('gestureBtn');
+const G = { on: false, busy: false, rec: null, stream: null, timer: 0, name: '', count: 0, yawRate: 0, pitchTarget: null, lb: false };
+
+async function loadRecognizer() {
+  if (G.rec) return G.rec;
+  const vision = await import(GESTURE_LIB + '/vision_bundle.mjs');
+  const files = await vision.FilesetResolver.forVisionTasks(GESTURE_LIB + '/wasm');
+  const opts = delegate => ({ baseOptions: { modelAssetPath: GESTURE_MODEL, delegate }, runningMode: 'VIDEO', numHands: 1 });
+  try { G.rec = await vision.GestureRecognizer.createFromOptions(files, opts('GPU')); }
+  catch (e) { G.rec = await vision.GestureRecognizer.createFromOptions(files, opts('CPU')); }
+  return G.rec;
+}
+function stopGesture() {
+  clearInterval(G.timer);
+  if (G.stream) G.stream.getTracks().forEach(t => t.stop());
+  G.stream = null; G.on = false; G.yawRate = 0; G.pitchTarget = null; G.name = ''; G.count = 0;
+  camEl.srcObject = null; camEl.classList.remove('on');
+  gestureBtn.textContent = '手势';
+}
+async function startGesture() {
+  if (G.busy) return;
+  G.busy = true; gestureBtn.textContent = '手势 …';
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('no camera api'), { name: 'NoCameraApi' });
+    showHint('请在浏览器弹出的提示里允许使用摄像头（画面只在本机处理）');
+    G.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: 'user' }, audio: false });
+    camEl.srcObject = G.stream; await camEl.play(); camEl.classList.add('on');
+    showHint('正在加载手势识别，第一次需要联网下载约 18MB…');
+    await loadRecognizer();
+    G.on = true; gestureBtn.textContent = '手势 开';
+    G.timer = setInterval(gestureTick, 70);
+    showHint('张开手掌 散开 · 握拳 聚合 · 左右移动手 旋转 · 伸出食指 看照片', 14000);
+  } catch (e) {
+    stopGesture();
+    const why = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? '没有拿到摄像头权限，请在浏览器地址栏里允许后再试'
+              : e && (e.name === 'NotFoundError' || e.name === 'NoCameraApi') ? '没有找到可用的摄像头'
+              : '手势识别加载失败，请检查网络后再试';
+    showHint(why, 8000);
+  }
+  G.busy = false;
+}
+gestureBtn.addEventListener('click', () => { if (G.on) { stopGesture(); showHint('手势已关闭', 2500); } else startGesture(); });
+
+function gestureTick() {
+  if (!G.on || camEl.readyState < 2 || !camEl.videoWidth) return;
+  let res;
+  try { res = G.rec.recognizeForVideo(camEl, performance.now()); } catch (e) { return; }
+  const g = res.gestures && res.gestures[0] && res.gestures[0][0], lm = res.landmarks && res.landmarks[0];
+  if (!g || !lm) { G.yawRate = 0; G.pitchTarget = null; G.name = ''; G.count = 0; return; }   // 画面里没有手
+  const name = g.score > 0.5 ? g.categoryName : 'None';
+  G.count = name === G.name ? G.count + 1 : 1; G.name = name;
+
+  // 手在画面里偏左 / 偏右 → 树往那边转；张开手掌时，手的高低控制俯视角度
+  const off = 0.5 - lm[9].x;
+  G.yawRate = name === 'Closed_Fist' || !lightbox.hidden ? 0 : -Math.sign(off) * Math.max(0, Math.abs(off) - 0.1) * 2.2;
+  G.pitchTarget = name === 'Open_Palm' ? Math.min(0.9, Math.max(0.08, 0.95 - lm[9].y)) : null;
+
+  if (G.lb && name !== 'Pointing_Up' && G.count === 4) closeLightbox();        // 收回食指，照片放回去
+  if (G.count !== 3) return;                                                   // 同一个手势连续认出 3 次才算数，避免误触
+  if (name === 'Open_Palm' && formTarget > 0.5 && form >= 1) toggleForm();
+  else if (name === 'Closed_Fist') { closeLightbox(); if (formTarget < 0.5) toggleForm(); }
+  else if (name === 'Pointing_Up' && formTarget < 0.5 && form < 0.2 && lightbox.hidden) {
+    // 伸出食指：把离镜头最近的那张照片放大
+    let best = -1;
+    photos.forEach((p, i) => { if (!p.placeholder && p.depth > 2 && (best < 0 || p.depth < photos[best].depth)) best = i; });
+    if (best >= 0) { openLightbox(best, photos[best].el); G.lb = true; }
+  }
+}
+
 /* ============================ 每一帧 ============================ */
 const maxPoint = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];
 const TARGET = [0, 4.7, 0];
@@ -801,6 +1204,7 @@ function drawQuad(prog, target, w, h) {
 }
 
 function frame(now) {
+  requestAnimationFrame(frame);                                        // 先预约下一帧：即使这一帧出了错，动画也不会停
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now; time += dt; spin += dt * CONFIG.spinSpeed;
   resize();
@@ -808,7 +1212,10 @@ function frame(now) {
   // 聚合进度、松手后的惯性、鼠标"吹气"的余波
   const step = dt / 3.2;
   form = formTarget > form ? Math.min(formTarget, form + step) : Math.max(formTarget, form - step);
-  if (!pointers.size) { yaw += vYaw; pitch += vPitch; vYaw *= 0.93; vPitch *= 0.86; }
+  if (!pointers.size) {
+    yaw += vYaw + G.yawRate * dt; pitch += vPitch; vYaw *= 0.93; vPitch *= 0.86;
+    if (G.pitchTarget !== null) pitch += (G.pitchTarget - pitch) * Math.min(1, dt * 2);
+  }
   pitch = Math.min(1.05, Math.max(0.04, pitch));
   dist = Math.min(48, Math.max(10, dist));
   pointerLive *= Math.exp(-dt * 1.5);
@@ -839,6 +1246,7 @@ function frame(now) {
   const eye = [TARGET[0] + dd * cp * Math.sin(yaw), TARGET[1] + dd * Math.sin(pitch), TARGET[2] + dd * cp * Math.cos(yaw)];
   const vp = matmul(perspective(FOV, aspect, 0.1, 250), lookAt(eye, TARGET));
   camVP = vp; camEye = eye; camDist = dd;
+  updatePhotos(vp);
 
   // 1) 把所有粒子画进高动态范围画布（先画倒影，再画本体）
   gl.bindFramebuffer(gl.FRAMEBUFFER, scene.fbo);
@@ -928,8 +1336,6 @@ function frame(now) {
   gl.uniform1f(f.uExposure, CONFIG.exposure * (hdr ? 1 : 1 / 0.3));
   gl.uniform1f(f.uTime, time);
   drawQuad(progFinal, null, W, HH);
-
-  requestAnimationFrame(frame);
 }
 
 resize();
