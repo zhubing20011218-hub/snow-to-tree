@@ -5,3 +5,6 @@ node_modules/
 
 # 个人笔记，只留在本机，不进仓库
 docs/calmness-profile.md
+
+# 部署脚本和服务器配置，只留在本机（里面有服务器地址和端口）
+deploy/
