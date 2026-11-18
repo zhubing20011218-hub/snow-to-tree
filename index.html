@@ -16,6 +16,7 @@
     opacity: 0; transition: opacity 3s ease;
   }
   .formed .title { opacity: 1; transition-delay: 1.2s; }
+  .intro.formed .title { transition-delay: 6s; }       /* 开场时等树长好了再出现 */
   .title h1 {
     margin: 0; font-weight: 400; font-style: italic; line-height: 1.2;
     font-family: "Didot", "Bodoni 72", "Playfair Display", "Times New Roman", Georgia, serif;
@@ -253,6 +254,9 @@ const CONFIG = {
 
   ornaments: 0.55,                   // 有多少树枝的枝头挂装饰（0 = 不挂，1 = 每根都挂）
   snowOnTree: 0.45,                  // 枝叶上的积雪（0 = 没有，1 = 很多）
+
+  introSnow: 3.2,                    // 开场：先下几秒雪，再开始长树
+  introGrow: 6.5,                    // 开场：树从无到有长出来用几秒
 
   spinSpeed: 0.2,                    // 树自转速度（0 = 不转）
   bandWidth: 1.0,                    // 两条光带的粗细（1 = 默认，2 = 粗一倍）
@@ -598,7 +602,7 @@ uniform mat4 uVP;
 uniform vec4 uComet;                     // 彗星的位置 (xyz) 和亮度 (w)
 uniform vec3 uPointer;                   // 鼠标在屏幕上的位置 (xy) 和活跃度 (z)
 uniform vec3 uGold;
-uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseAge, uAspect, uDist, uBand;
+uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseAge, uAspect, uDist, uBand, uSnow;
 out vec3 vColor;
 flat out float vShape;
 
@@ -670,11 +674,17 @@ void main() {
       bright *= 1.0 + 3.2 * g + 1.7 * tail;
 
       // 聚合 / 化雪：没聚合的时候，这些粒子就是漫天的雪
-      float f = clamp(uForm * 1.6 - ph * 0.6, 0.0, 1.0);
+      // 先后顺序(ord 越小越早):树身的雪从下往上落定 → 小灯自下而上亮起 → 光带最后盘旋而上。散开时顺序正好反过来
+      bool body = type > 0.5 && type < 1.5;
+      float hh = body ? clamp(aPos.y / H, 0.0, 1.0) : t;
+      float ord = body ? (bulb > 0.5 ? 0.3 + 0.6 * hh : 0.62 * hh + 0.08 * ph) : 0.45 + 0.5 * hh + 0.04 * ph;
+      float f = clamp(uForm * 3.0 - ord * 2.0, 0.0, 1.0);
       f = f * f * (3.0 - 2.0 * f);
       if (f < 1.0) {
         float edge;
         vec3 s = snowfall(aScatter, ph, edge);
+        s.xz = rot((1.0 - f) * (0.5 + ph) * 1.6) * s.xz;                // 绕着树打着旋儿飘过来
+        s.y += sin(f * 3.14159) * 1.6;                                  // 先扬起一点，再落下
         p = mix(s, p, f);
         col = mix(vec3(0.85, 0.82, 0.84), col, f);
         bright = mix(0.6 * edge * step(0.7, fract(ph * 7.13)) * (1.0 - bulb), bright, f);
@@ -683,7 +693,7 @@ void main() {
   } else if (type < 4.5) {               // 雪
     float edge;
     p = snowfall(aPos, ph, edge);
-    bright = 0.5 * edge;
+    bright = 0.5 * edge * uSnow;
   } else if (type < 5.5) {               // 涟漪：一圈圈的光点，彗星到顶时会有一道金色的波纹荡开
     float r = length(aPos.xz), a = atan(aPos.z, aPos.x);
     p.xz = rot(uTime * 0.025 * (mod(ex, 2.0) < 0.5 ? 1.0 : -1.0)) * aPos.xz;
@@ -832,9 +842,14 @@ void main() {
   float size = aMisc.x, ph = aMisc.z, kind = aMisc.w;
 
   // 树散开时，卡片一片接一片缩回去消失（飘出去的是粒子做的雪）
-  float f = clamp(uForm * 1.6 - ph * 0.6, 0.0, 1.0);
+  // 先后顺序:枝叶从下往上一层层长出来，装饰稍后挂上，树下的礼物先出现，树顶的星星最后亮
+  float hh = clamp(aPos.y / 10.0, 0.0, 1.0);
+  float ord = kind < 0.5 ? 0.62 * hh + 0.06 * ph
+            : kind < 1.5 ? 0.2 + 0.62 * hh + 0.05 * ph
+            : (hh > 0.5 ? 0.97 : 0.1 + 0.25 * ph);
+  float f = clamp(uForm * 3.0 - ord * 2.0, 0.0, 1.0);
   f = f * f * (3.0 - 2.0 * f);
-  size *= f;
+  size *= f * (1.0 + 0.22 * sin(f * 3.14159));                           // 舒展开的时候微微过头一点，再回到原来的大小
 
   vec3 c = aPos, d = aDir;
   c.xz = rot(uSpin) * c.xz; d.xz = rot(uSpin) * d.xz;
@@ -1069,11 +1084,14 @@ function cycleHints() {
   hintCycle = setTimeout(cycleHints, 5800);
 }
 
+let formDur = 3.6, introActive = true, introStarted = false, growing = false;   // formDur：聚合 / 散开用几秒；开场时会更慢
+const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);   // 系统设置了"减少动态效果"：开场快速带过
 function toggleForm() {
   formTarget = formTarget > 0.5 ? 0 : 1;
+  growing = formTarget > 0.5;
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
-  if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, 4200); }
+  if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, introActive ? 9000 : 4600); }
   else showHint('玫红和金色的雪花是照片，点一下放大 · 双击，让雪重新聚成树');
 }
 canvas.addEventListener('dblclick', e => {
@@ -1613,7 +1631,12 @@ function frame(now) {
   resize();
 
   // 聚合进度、松手后的惯性、鼠标"吹气"的余波
-  const step = dt / 3.2;
+  // 开场：按画面实际播放的时间来算（而不是按打开网页的时间），这样即使网页在后台加载，雪夜那一段也不会被跳过
+  if (introActive && !introStarted && time >= (calm ? 0.4 : CONFIG.introSnow)) {
+    introStarted = true;
+    if (formTarget < 0.5) { formDur = calm ? 2 : CONFIG.introGrow; toggleForm(); }   // 用户已经自己双击让树长出来的话，就不重复了
+  }
+  const step = dt / formDur;
   form = formTarget > form ? Math.min(formTarget, form + step) : Math.max(formTarget, form - step);
   if (!pointers.size) {
     yaw += vYaw + G.yawRate * dt; pitch += vPitch; vYaw *= 0.93; vPitch *= 0.86;
@@ -1624,6 +1647,10 @@ function frame(now) {
   pointerLive *= Math.exp(-dt * 1.5);
 
   // 彗星：树完全成形后，一团金色的光沿着丝带爬上去；到顶时触发一次"心跳"
+  if (growing && form >= 1) {                                          // 树刚刚长好：树顶的星星闪一下，地面荡开一圈涟漪
+    growing = false; pulseAt = time; chime(1568, 0.3);
+    if (introActive) { introActive = false; formDur = 3.6; document.body.classList.remove('intro'); }
+  }
   let cometOn = 0;
   if (form >= 1) {
     cometQ += dt * CONFIG.cometSpeed;
@@ -1644,9 +1671,10 @@ function frame(now) {
 
   // 相机：围着树转
   const aspect = W / HH;
-  const dd = dist * Math.max(1, 0.62 / aspect);            // 竖屏时自动拉远，保证整棵树都在画面里
-  const cp = Math.cos(pitch);
-  const eye = [TARGET[0] + dd * cp * Math.sin(yaw), TARGET[1] + dd * Math.sin(pitch), TARGET[2] + dd * cp * Math.cos(yaw)];
+  const ci = 1 - smooth(0, CONFIG.introSnow + CONFIG.introGrow + 1.5, time);   // 开场镜头：1 → 0，从远处、高处缓缓推近
+  const dd = (dist + 9 * ci) * Math.max(1, 0.62 / aspect);    // 竖屏时自动拉远，保证整棵树都在画面里
+  const camPitch = pitch + 0.22 * ci, camYaw = yaw - 0.75 * ci, cp = Math.cos(camPitch);
+  const eye = [TARGET[0] + dd * cp * Math.sin(camYaw), TARGET[1] + dd * Math.sin(camPitch), TARGET[2] + dd * cp * Math.cos(camYaw)];
   const view = lookAt(eye, TARGET), proj = perspective(FOV, aspect, 0.1, 250);
   const vp = matmul(proj, view);
   camVP = vp; camEye = eye; camDist = dd;
@@ -1657,7 +1685,7 @@ function frame(now) {
   gl.viewport(0, 0, W, HH);
   gl.depthMask(true);
   gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  const gloss = form * form * (1 - 0.85 * smooth(0.2, 0.75, pitch));   // 俯视时倒影变淡；化雪时没有倒影
+  const gloss = form * form * (1 - 0.85 * smooth(0.2, 0.75, camPitch));   // 俯视时倒影变淡；化雪时没有倒影
 
   // 1a) 实体的枝叶和装饰：不透明，前面的挡住后面的
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND);
@@ -1697,6 +1725,7 @@ function frame(now) {
   gl.uniform1f(u.uAspect, aspect);
   gl.uniform1f(u.uDist, dd);
   gl.uniform1f(u.uBand, CONFIG.bandWidth);
+  gl.uniform1f(u.uSnow, 1 + 0.9 * ci);                                  // 开场时雪更大一些
   gl.uniform1f(u.uPx, HH / (2 * Math.tan(FOV / 2)));
   gl.uniform1f(u.uGain, hdr ? 1 : 0.3);
   gl.uniform1f(u.uMaxPt, Math.min(maxPoint, 34 * dpr));
@@ -1751,7 +1780,7 @@ function frame(now) {
 
   // 3) 合成到屏幕
   const star = project(vp, 0, STAR_Y, 0), cm = project(vp, comet[0], comet[1], comet[2]);
-  const formed = smooth(0.75, 1, form);
+  const formed = smooth(0.94, 1, form);
   gl.useProgram(progFinal.p);
   const f = progFinal.u;
   [scene.tex, levels[0].a.tex, levels[1].a.tex, levels[2].a.tex].forEach((t, i) => {
@@ -1770,7 +1799,8 @@ function frame(now) {
 resize();
 requestAnimationFrame(frame);
 // 开场：先是一场雪，然后雪聚成树
-setTimeout(toggleForm, 1600);
+// 开场：先是一段雪夜，然后树慢慢长出来（见 frame 里的"开场"那一段）
+document.body.classList.add('intro');
 </script>
 </body>
 </html>
