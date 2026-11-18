@@ -2,3 +2,6 @@
 .env*
 *.log
 node_modules/
+
+# 个人笔记，只留在本机，不进仓库
+docs/calmness-profile.md
