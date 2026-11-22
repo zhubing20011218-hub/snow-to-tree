@@ -216,6 +216,7 @@
     <label class="speed"><span>烟花速度</span><input type="range" id="speed" min="0.03" max="0.5" step="0.01" aria-label="烟花从树底到树顶的速度"></label>
     <button id="gestureBtn" type="button">手势</button>
     <button id="photoBtn" type="button">照片</button>
+    <button id="songBtn" type="button" hidden aria-label="换一首曲子"></button>
     <button id="playBtn" type="button">演奏</button>
     <button id="soundBtn" type="button">声音 开</button>
     <button id="resetBtn" type="button">重新装饰</button>
@@ -1272,7 +1273,7 @@ function ensureAudio() {
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
 }
 // 一个钢琴音：一串泛音（越高的泛音消失得越快）+ 每个音两根略微失谐的弦（钢琴特有的"合唱"感）+ 琴槌敲弦的那一下
-function piano(freq, vol, delay) {
+function piano(freq, vol, delay, hold) {
   if (!audio || !soundOn || audio.state !== 'running') return;
   const t = audio.currentTime + 0.01 + (delay || 0);
   const len = (pedal ? 7.5 : 3.4) * Math.pow(261.63 / freq, 0.3);          // 低音余音更长；踩着踏板时更长
@@ -1282,6 +1283,12 @@ function piano(freq, vol, delay) {
   lp.frequency.setValueAtTime(Math.min(16000, freq * (8 + vol * 16)), t);   // 弹得越重，声音越亮
   lp.frequency.exponentialRampToValueAtTime(Math.max(freq * 2.5, 400), t + len * 0.6);
   lp.connect(out); out.connect(master);
+  let end = Infinity;
+  if (hold && !pedal) {                                                   // 松开琴键：0.1 秒左右收掉，乐曲才不会糊成一片
+    out.gain.setValueAtTime(vol, t + hold);
+    out.gain.setTargetAtTime(0, t + hold, 0.09);
+    end = t + hold + 0.7;
+  }
   [1, 0.42, 0.24, 0.13, 0.08, 0.045].forEach((g, i) => {
     const n = i + 1, f = freq * n * Math.sqrt(1 + 0.00015 * n * n);       // 真实琴弦的泛音会略微偏高（收小了，听起来更准）
     if (f > 14000) return;
@@ -1293,7 +1300,7 @@ function piano(freq, vol, delay) {
       e.gain.linearRampToValueAtTime(g * 0.5, t + 0.004);
       e.gain.exponentialRampToValueAtTime(g * 0.17, t + 0.004 + d * 0.12);   // 先快后慢两段衰减，这是钢琴声的关键
       e.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      o.connect(e); e.connect(lp); o.start(t); o.stop(t + d + 0.05);
+      o.connect(e); e.connect(lp); o.start(t); o.stop(Math.min(t + d + 0.05, end));
     }
   });
   const hn = audio.createBufferSource(), hf = audio.createBiquadFilter(), hg = audio.createGain();
@@ -1316,11 +1323,11 @@ function noteFor(y) { return freqOf(semiForTier(tierOfY(y))); }
 const tierHit = new Float32Array(15).fill(-100), keyHit = new Float32Array(36).fill(-100);
 const tierGlow = new Float32Array(15), keyGlow = new Float32Array(36);
 let pedal = false, pedalAmt = 0, snowT = 0;
-function pressNote(semi, vol, quiet, tier) {
-  semi = Math.max(0, Math.min(35, semi | 0));
-  keyHit[semi] = time;
-  if (!quiet) tierHit[tier === undefined ? tierForSemi(semi) : tier] = time;
-  piano(freqOf(semi), vol);
+function pressNote(semi, vol, quiet, tier, hold, delay) {
+  semi = Math.round(semi); delay = delay || 0;
+  if (semi >= 0 && semi <= 35) keyHit[semi] = time + delay;              // 地上的琴键只有 C3–B5；更低的低音只发声
+  if (!quiet) tierHit[tier === undefined ? tierForSemi(semi) : tier] = time + delay;
+  piano(freqOf(semi), vol, delay, hold);
 }
 function ringLight(l, vol) { const n = tierOfY(l.y); l.ring = time; pressNote(semiForTier(n), vol, false, n); }
 
@@ -1414,30 +1421,92 @@ const SN_MEL = [[19,1.5],[21,.5],[19,1],[16,3],[19,1.5],[21,.5],[19,1],[16,3],[2
 const SN_BARS = 'CCCCGGCCFFCCFFCCGGCCCGCC';
 const CHORD = { C: [0, 4, 7], F: [5, 9, 12], G: [7, 11, 14] };
 const BEAT = 0.62;
-const song = { on: false, t: 0, t0: 0, i: 0, ev: [] };
-(function buildSong() {
+// 每个音是 [第几秒, 音高（0 = C3）, 力度, 是否只发声不点亮树（伴奏）, 按住几秒（不写就让它自然消失）]
+function silentNight() {
+  const ev = [];
   let b = 0;
-  for (const [s, d] of SN_MEL) { song.ev.push([b * BEAT, s, 0.62, false]); b += d; }
+  for (const [s, d] of SN_MEL) { ev.push([b * BEAT, s, 0.62, false]); b += d; }
   [...SN_BARS].forEach((c, k) => {
     const [r, a, f] = CHORD[c], t0 = (k * 3) * BEAT;
-    song.ev.push([t0, r, 0.42, false], [t0 + BEAT, a, 0.16, true], [t0 + BEAT, f, 0.16, true], [t0 + 2 * BEAT, a, 0.14, true], [t0 + 2 * BEAT, f, 0.14, true]);
+    ev.push([t0, r, 0.42, false], [t0 + BEAT, a, 0.16, true], [t0 + BEAT, f, 0.16, true], [t0 + 2 * BEAT, a, 0.14, true], [t0 + 2 * BEAT, f, 0.14, true]);
   });
-  song.ev.sort((x, y) => x[0] - y[0]);
-})();
-const playBtn = document.getElementById('playBtn');
+  return ev.sort((x, y) => x[0] - y[0]);
+}
+
+// 读简谱写的曲子（格式见 songs/local.js 开头的说明）：右手 rh、左手 lh，每小节一个字符串
+const DEG = [0, 0, 2, 4, 5, 7, 9, 11];                                   // 简谱 1–7 → 比 do 高几个半音
+function parseScore(sd) {
+  const beat = 60 / sd.bpm, ev = [];
+  for (const [bars, vTop, vLow] of [[sd.rh, 0.5, 0.22], [sd.lh, 0.3, 0.2]]) {
+    const resolve = i => { let b = bars[i], g = 0; while (b && b[0] === '=' && g++ < 9) b = bars[+b.slice(1) - 1]; return b || ''; };
+    let t = 0, held = [];
+    bars.forEach((_, i) => {
+      for (const tok of resolve(i).trim().split(/\s+/)) {
+        if (tok === '-') { held.forEach(e => e[4] += beat); t += beat; continue; }
+        let s = tok, len = 1, tie = false;
+        if (s[0] === '~') { tie = true; s = s.slice(1); }
+        if (s.endsWith('.')) { len *= 1.5; s = s.slice(0, -1); }
+        if (s.endsWith('=')) { len /= 4; s = s.slice(0, -1); } else if (s.endsWith('_')) { len /= 2; s = s.slice(0, -1); }
+        const d = len * beat;
+        if (tie) { held.forEach(e => e[4] += d); t += d; continue; }  // 连音线：不重新弹，接着按住
+        const semis = [];
+        for (const n of s.split('/')) {
+          const m = n.match(/^([0-7])([',]*)$/);
+          if (!m) throw new Error('第 ' + (i + 1) + ' 小节读不懂：' + tok);
+          if (m[1] === '0') continue;
+          let semi = 12 + DEG[+m[1]];
+          for (const c of m[2]) semi += c === "'" ? 12 : -12;
+          semis.push(semi);
+        }
+        // 同时弹的几个音从低到高滚一点点，像真的手指；写在最前面的（旋律）最响，并点亮树
+        held = semis.map((semi, k) => { const e = [t + (semis.length - 1 - k) * 0.012, semi, k ? vLow : vTop, k > 0, d]; ev.push(e); return e; });
+        t += d;
+      }
+    });
+  }
+  ev.forEach(e => { e[4] = e[4] * 1.04 + 0.03; });                          // 每个音多按一点点，连起来更顺
+  return ev.sort((x, y) => x[0] - y[0]);
+}
+
+const SONGS = [{ name: '平安夜', ev: silentNight() }];
+let songIdx = 0;
+const song = { on: false, t: 0, t0: 0, i: 0, ev: SONGS[0].ev };
+const playBtn = document.getElementById('playBtn'), songBtn = document.getElementById('songBtn');
+function showSongName() { songBtn.textContent = '《' + SONGS[songIdx].name + '》'; songBtn.hidden = SONGS.length < 2; }
+function addSongs(list) {
+  for (const sd of list || []) {
+    try { SONGS.push({ name: String(sd.name), ev: parseScore(sd) }); }
+    catch (e) { console.warn('曲谱有问题，跳过了《' + (sd && sd.name) + '》：', e.message); }
+  }
+  showSongName();
+}
 function setSong(on) {
   song.on = on; song.t0 = performance.now() + 400; song.i = 0;   // 按真实时间走：画面卡顿时曲子也不会被拖慢
+  song.ev = SONGS[songIdx].ev;
   playBtn.textContent = on ? '停止' : '演奏';
 }
 playBtn.addEventListener('click', () => { ensureAudio(); setSong(!song.on); });
+songBtn.addEventListener('click', () => {                                // 点曲名换下一首
+  if (song.on) setSong(false);
+  songIdx = (songIdx + 1) % SONGS.length; showSongName();
+});
 function songTick() {
   if (!song.on) return;
   song.t = (performance.now() - song.t0) / 1000;
-  while (song.i < song.ev.length && song.ev[song.i][0] <= song.t) {
-    const [, s, v, quiet] = song.ev[song.i++];
-    pressNote(s, v, quiet);
+  // 提前 0.6 秒把音排进声卡的时间表：就算画面卡顿或页面在后台，节奏也是准的
+  while (song.i < song.ev.length && song.ev[song.i][0] <= song.t + 0.6) {
+    const [at, s, v, quiet, hold] = song.ev[song.i++];
+    pressNote(s, v, quiet, undefined, hold, Math.max(0, at - song.t));
   }
   if (song.i >= song.ev.length && song.t > song.ev[song.ev.length - 1][0] + 5) setSong(false);
+}
+// 只在本机打开时（localhost 或直接双击 index.html），读 songs/local.js 里只留在本机的曲子。
+// 有版权的歌放在那里：songs/ 不进公开仓库，也不会被部署到网站上
+if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || location.protocol === 'file:') {
+  const sc = document.createElement('script');
+  sc.src = 'songs/local.js';
+  sc.onload = () => addSongs(window.TREE_SONGS);
+  document.head.appendChild(sc);
 }
 
 // ---- 点击：点到了哪盏灯？点到了树的哪里？ ----
@@ -1902,8 +1971,8 @@ function frame(now) {
   pedalAmt += ((pedal ? 1 : 0) - pedalAmt) * Math.min(1, dt * 3);
   snowT += dt * (1 - 0.82 * pedalAmt);                                // 踩下踏板：雪几乎停在空中
   const fade = 2.4 - 1.6 * pedalAmt;                                  // 踩着踏板时，光也熄得更慢
-  for (let i = 0; i < 15; i++) tierGlow[i] = Math.exp(-Math.max(0, time - tierHit[i]) * fade);
-  for (let i = 0; i < 36; i++) keyGlow[i] = Math.exp(-Math.max(0, time - keyHit[i]) * fade);
+  for (let i = 0; i < 15; i++) tierGlow[i] = time < tierHit[i] ? 0 : Math.exp(-(time - tierHit[i]) * fade);   // 还没轮到的音先不亮
+  for (let i = 0; i < 36; i++) keyGlow[i] = time < keyHit[i] ? 0 : Math.exp(-(time - keyHit[i]) * fade);
 
   // 彗星：树完全成形后，一团金色的光沿着丝带爬上去；到顶时触发一次"心跳"
   if (growing && form >= 1) {                                          // 树刚刚长好：树顶的星星闪一下，地面荡开一圈涟漪
