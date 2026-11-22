@@ -642,6 +642,7 @@ uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseA
 uniform float uSnowT;                    // 雪自己的时钟：踩下延音踏板时，雪会慢下来
 uniform float uTier[15];                 // 树的 15 层各自"被弹响"的亮度（0 = 安静，1 = 刚刚响）
 uniform float uKey[36];                  // 地上 36 个琴键各自的亮度
+uniform float uStrY[15], uStrW;          // 树散开后，15 层变成天上 15 根看不见的弦：它们在屏幕上的高度和线宽
 out vec3 vColor;
 flat out float vShape;
 
@@ -675,6 +676,7 @@ void main() {
   float size = aData.x, ph = aData.y, type = aData.z, ex = aData.w;
   vec3 p = aPos, col = aColor;
   float bright = 1.0, alpha = 1.0;
+  float snowK = 0.0;                     // 这颗粒子此刻有多"像雪"：树散开后才是 1。天上的弦只拨亮雪
   bool tree = type < 3.5;
   float bulb = (type > 0.5 && type < 1.5 && ex > 0.5) ? 1.0 : 0.0;       // 是不是一颗小暖灯
 
@@ -732,12 +734,14 @@ void main() {
         p = mix(s, p, f);
         col = mix(vec3(0.85, 0.82, 0.84), col, f);
         bright = mix(0.6 * edge * step(0.7, fract(ph * 7.13)) * (1.0 - bulb), bright, f);
+        snowK = (1.0 - f) * edge * (1.0 - bulb);
       }
     }
   } else if (type < 4.5) {               // 雪
     float edge;
     p = snowfall(aPos, ph, edge);
     bright = 0.5 * edge * uSnow;
+    snowK = edge * (1.0 - uForm);
   } else if (type < 5.5) {               // 涟漪：一圈圈的光点，彗星到顶时会有一道金色的波纹荡开
     float r = length(aPos.xz), a = atan(aPos.z, aPos.x);
     p.xz = rot(uTime * 0.025 * (mod(ex, 2.0) < 0.5 ? 1.0 : -1.0)) * aPos.xz;
@@ -782,6 +786,15 @@ void main() {
   float dd = dot(dv, dv);
   float push = uPointer.z * exp(-dd * 24.0) * (0.3 + 1.4 * ph);
   clip.xy += dv / (sqrt(dd) + 0.03) * push * 0.075 * clip.w / vec2(uAspect, 1.0);
+
+  // 天上的弦被拨响时，屏幕上正好在那条弦上的雪亮成一条细细的金线
+  if (snowK > 0.0 && uMirror == 0.0) {
+    float yy = clip.y / max(clip.w, 0.001), sg = 0.0;
+    for (int n = 0; n < 15; n++) { float d = (yy - uStrY[n]) / uStrW; sg += uTier[n] * exp(-d * d); }
+    sg = min(sg, 1.0) * snowK;
+    col = mix(col, uGold * 1.2, sg * 0.85);
+    bright += sg * 1.5;
+  }
 
   gl_Position = clip;
   float px = size * uPx / max(clip.w, 0.1);
@@ -1146,7 +1159,7 @@ function toggleForm() {
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
   if (formTarget > 0.5) { hint.classList.add('gone'); setTimeout(() => hint.classList.remove('center'), 1600); hintCycle = setTimeout(cycleHints, introActive ? 9000 : 4600); }
-  else showHint('玫红和金色的雪花是照片，点一下放大 · 双击，让雪重新聚成树');
+  else showHint(photos.length ? '上下划过雪，拨响天上的弦 · 每片彩色雪花都有自己的旋律' : '上下划过雪，拨响天上的弦 · 双击，让雪重新聚成树');
 }
 canvas.addEventListener('dblclick', e => {
   // 在树上双击是在挂灯 / 点灯，不触发化雪
@@ -1310,6 +1323,74 @@ function pressNote(semi, vol, quiet, tier) {
   piano(freqOf(semi), vol);
 }
 function ringLight(l, vol) { const n = tierOfY(l.y); l.ring = time; pressNote(semiForTier(n), vol, false, n); }
+
+// ---- 树散开时：天上 15 根看不见的弦 ----
+// 鼠标（手机上是手指拖动）上下划过雪，每越过一根弦就拨响它：快速划过就是一串刮奏。划得越快，声音越响
+const stringY = new Float32Array(15), stringNdc = new Float32Array(15), lastPluck = new Float32Array(15).fill(-1);
+let sweepY = null;
+function pluck(n, vol, delay, force) {
+  if (!force && time - lastPluck[n] < 0.07) return;                   // 划过时同一根弦不连响（照片的旋律不受这个限制）
+  lastPluck[n] = time; tierHit[n] = time + (delay || 0);
+  const semi = semiForTier(n); keyHit[semi] = time + (delay || 0);
+  piano(freqOf(semi), vol, delay);
+}
+function sweepTo(y, dtMs) {
+  if (form > 0.35 || sweepY === null || !lightbox.hidden) { sweepY = y; return; }
+  const y0 = sweepY, speed = Math.abs(y - y0) / Math.max(dtMs, 8);   // 像素 / 毫秒
+  const vol = Math.min(0.55, 0.16 + speed * 0.12), hit = [];
+  for (let n = 0; n < 15; n++) { const sy = stringY[n]; if ((sy - y0) * (sy - y) < 0) hit.push(n); }
+  hit.sort((a, b) => Math.abs(stringY[a] - y0) - Math.abs(stringY[b] - y0));    // 按划过的先后顺序拨
+  if (hit.length) ensureAudio();
+  hit.forEach((n, k) => pluck(n, vol, k * Math.min(0.05, dtMs / 1000 / hit.length)));
+  sweepY = y;
+}
+let sweepT = 0;
+canvas.addEventListener('pointermove', e => {
+  const now = performance.now(), dtMs = now - sweepT; sweepT = now;
+  if (e.pointerType === 'mouse' ? !e.buttons : pointers.size === 1) sweepTo(e.clientY, dtMs);
+  else sweepY = e.clientY;
+});
+canvas.addEventListener('pointerleave', () => { sweepY = null; });
+
+// ---- 每张照片有一段自己的旋律：把照片从左到右当成乐谱来读 ----
+// 照片切成 6 竖条，每条越亮音越高，颜色越浓弹得越重；整体偏暖色配大调的低音（C），偏冷色配小调的低音（A）
+function photoMotif(img) {
+  try {
+    const c = document.createElement('canvas'); c.width = 6; c.height = 8;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, 6, 8);
+    const d = g.getImageData(0, 0, 6, 8).data, notes = [];
+    let warm = 0;
+    for (let x = 0; x < 6; x++) {
+      let lum = 0, sat = 0;
+      for (let y = 0; y < 8; y++) {
+        const i = (y * 6 + x) * 4, r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        lum += 0.3 * r + 0.59 * gg + 0.11 * b; sat += mx > 0 ? (mx - mn) / mx : 0; warm += r - b;
+      }
+      lum /= 8; sat /= 8;
+      const n = 6 + Math.round(lum * 8);                                  // 只用树的中上部（G3 到 C5），旋律清楚不浑浊
+      notes.push({ n: Math.min(14, n), v: 0.3 + sat * 0.3 });
+    }
+    return { notes, root: warm >= 0 ? 0 : 9 };
+  } catch (e) { return null; }
+}
+function playMotif(ph, soft) {
+  if (!ph || !ph.motif) return;
+  ensureAudio();
+  const k = soft ? 0.6 : 1;
+  piano(freqOf(ph.motif.root), 0.3 * k);
+  keyHit[ph.motif.root] = time;
+  ph.motif.notes.forEach((m, i) => pluck(m.n, m.v * k, i * 0.17 + (i === 5 ? 0.12 : 0), true));
+}
+function ringFlake(ph) {                                                 // 碰到照片雪花：弹它旋律的第一个音，雪花轻轻一跳
+  if (!ph.motif || ph.e < 0.7 || time - (ph.rung || -9) < 0.5) return;
+  ph.rung = time;
+  const m = ph.motif.notes[0];
+  ensureAudio(); pluck(m.n, 0.45);
+  const svg = ph.flake.firstChild;
+  if (svg && svg.animate) svg.animate([{ transform: 'scale(1.9)' }, { transform: 'scale(1)' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
 
 // ---- 电脑键盘就是琴键：下排 Z X C V B N M 是低音 do 到 si（树的下半截），上排 Q W E R T Y U I 是高音 do 到高 do（树的上半截）----
 // （没用 H：H 是隐藏按钮；空格是散开 / 聚合）
@@ -1500,9 +1581,10 @@ function syncPhotos() {
     el.type = 'button'; el.className = i % 2 ? 'ph gold' : 'ph'; el.setAttribute('aria-label', '打开照片');
     disc.className = 'disc'; flake.className = 'flake'; flake.innerHTML = FLAKE_SVG;
     const probe = new Image();                                           // 量一下照片的长宽比，摆艺术排列时要用
-    probe.onload = () => { ph.aspect = probe.naturalWidth / Math.max(1, probe.naturalHeight); };
+    probe.onload = () => { ph.aspect = probe.naturalWidth / Math.max(1, probe.naturalHeight); if (!ph.motif) ph.motif = photoMotif(probe); };
     probe.src = ph.url;
     el.appendChild(disc); el.appendChild(flake);
+    flake.addEventListener('pointerenter', () => ringFlake(ph));
     el.addEventListener('click', () => openLightbox(photos.indexOf(ph), (ph.e > 0.5 ? flake : disc).getBoundingClientRect()));
     ph.el = el; ph.disc = disc; ph.flake = flake; ph.depth = 99; ph.e = 1;
     photoBox.appendChild(el);
@@ -1585,6 +1667,7 @@ let lbIndex = -1;
 function openLightbox(i, from) {
   const ph = photos[i];
   if (!ph) return;
+  playMotif(ph);
   lbIndex = i; lightbox.hidden = false; lightbox.classList.remove('on');
   lightbox.classList.toggle('multi', realPhotos().length > 1);
   art.style.transition = 'none'; art.style.transform = '';
@@ -1613,6 +1696,7 @@ function stepLightbox(dir) {
 }
 function showInLightbox(i) {
   lbIndex = i; sideBox.textContent = '';
+  playMotif(photos[i], true);
   lbImg.onload = () => layoutSides(art.getBoundingClientRect());
   lbImg.src = photos[i].url;
   if (lbImg.complete && lbImg.naturalWidth) { lbImg.onload = null; layoutSides(art.getBoundingClientRect()); }
@@ -1856,6 +1940,7 @@ function frame(now) {
   const view = lookAt(eye, TARGET), proj = perspective(FOV, aspect, 0.1, 250);
   const vp = matmul(proj, view);
   camVP = vp; camEye = eye; camDist = dd;
+  for (let n = 0; n < 15; n++) { const py = project(vp, 0, (n + 0.5) / 15 * H, 0)[1]; stringNdc[n] = py * 2 - 1; stringY[n] = (1 - py) * canvas.clientHeight; }
   updatePhotos(vp);
 
   // 1) 把所有粒子画进高动态范围画布（先画倒影，再画本体）
@@ -1907,7 +1992,9 @@ function frame(now) {
   gl.uniform1f(u.uSnow, 1 + 0.9 * ci);
   gl.uniform1f(u.uSnowT, snowT);
   gl.uniform1fv(u['uTier[0]'], tierGlow);
-  gl.uniform1fv(u['uKey[0]'], keyGlow);                                  // 开场时雪更大一些
+  gl.uniform1fv(u['uKey[0]'], keyGlow);
+  gl.uniform1fv(u['uStrY[0]'], stringNdc);
+  gl.uniform1f(u.uStrW, 2.6 * 2 / canvas.clientHeight);                                  // 开场时雪更大一些
   gl.uniform1f(u.uPx, HH / (2 * Math.tan(FOV / 2)));
   gl.uniform1f(u.uGain, hdr ? 1 : 0.3);
   gl.uniform1f(u.uMaxPt, Math.min(maxPoint, 34 * dpr));
