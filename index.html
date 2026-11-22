@@ -215,6 +215,7 @@
     <label class="speed"><span>烟花速度</span><input type="range" id="speed" min="0.03" max="0.5" step="0.01" aria-label="烟花从树底到树顶的速度"></label>
     <button id="gestureBtn" type="button">手势</button>
     <button id="photoBtn" type="button">照片</button>
+    <button id="playBtn" type="button">演奏</button>
     <button id="soundBtn" type="button">声音 开</button>
     <button id="resetBtn" type="button">重新装饰</button>
   </div>
@@ -408,6 +409,19 @@ for (let k = 0, r = 0.9; r < 15; k++, r *= 1.135) {
 for (let i = 0; i < 600; i++) {
   const a = rand() * TAU, c = rand() * 1.4 - 0.4, s = Math.sqrt(Math.max(0, 1 - c * c)), v = 0.5 + rand() * 1.9;
   add(Math.cos(a) * s * v, c * v, Math.sin(a) * s * v, rand() < 0.6 ? C.gold : [1, 0.95, 0.96], 0.03 + rand() * 0.05, 6);
+}
+
+// 8 = 地上的一圈琴键：三个八度（C3–B5）围成一圈，白键长、黑键短。哪个音响了，哪个键就亮一下
+const KEY_R = 5.0, WHITE_OF = [0, -1, 1, -1, 2, 3, -1, 4, -1, 5, -1, 6];
+for (let s = 0; s < 36; s++) {
+  const pc = s % 12, oct = Math.floor(s / 12), black = WHITE_OF[pc] < 0;
+  const pos = oct * 7 + (black ? WHITE_OF[pc - 1] + 0.5 : WHITE_OF[pc]);
+  const a = (pos + 0.5) / 21 * TAU, r0 = black ? KEY_R + 0.42 : KEY_R, r1 = KEY_R + 0.8;
+  const col = black ? mul(C.rose, 0.55) : mixc(C.blush, [1, 1, 1], 0.7);
+  for (let i = 0, n = black ? 34 : 60; i < n; i++) {
+    const rr = r0 + (r1 - r0) * rand(), aa = a + gauss() * 0.006;
+    add(Math.cos(aa) * rr, 0.01, Math.sin(aa) * rr, col, 0.026 + rand() * 0.02, 8, s);
+  }
 }
 
 const STRIDE = 13;
@@ -624,6 +638,9 @@ uniform vec4 uComet;                     // 彗星的位置 (xyz) 和亮度 (w)
 uniform vec3 uPointer;                   // 鼠标在屏幕上的位置 (xy) 和活跃度 (z)
 uniform vec3 uGold;
 uniform float uTime, uForm, uMirror, uPx, uSpin, uGain, uMaxPt, uCometQ, uPulseAge, uAspect, uDist, uBand, uSnow;
+uniform float uSnowT;                    // 雪自己的时钟：踩下延音踏板时，雪会慢下来
+uniform float uTier[15];                 // 树的 15 层各自"被弹响"的亮度（0 = 安静，1 = 刚刚响）
+uniform float uKey[36];                  // 地上 36 个琴键各自的亮度
 out vec3 vColor;
 flat out float vShape;
 
@@ -645,9 +662,9 @@ vec3 helix(float q, float dir, float jr, float jy, float wScale, out float t) {
 // 雪的飘落：一边下落，一边被风吹着横移、左右摇摆
 vec3 snowfall(vec3 s, float ph, out float edge) {
   vec3 p = s;
-  p.y = mod(s.y - uTime * (0.5 + ph * 0.9), SNOW_H) - 3.0;
-  p.x = mod(s.x + uTime * 0.28 * (0.5 + ph) + SNOW_W * 0.5, SNOW_W) - SNOW_W * 0.5 + sin(uTime * 0.35 + ph * 40.0) * 0.6;
-  p.z = s.z + cos(uTime * 0.3 + ph * 31.0) * 0.6;
+  p.y = mod(s.y - uSnowT * (0.5 + ph * 0.9), SNOW_H) - 3.0;
+  p.x = mod(s.x + uSnowT * 0.28 * (0.5 + ph) + SNOW_W * 0.5, SNOW_W) - SNOW_W * 0.5 + sin(uSnowT * 0.35 + ph * 40.0) * 0.6;
+  p.z = s.z + cos(uSnowT * 0.3 + ph * 31.0) * 0.6;
   edge = smoothstep(-3.0, 0.5, p.y) * (1.0 - smoothstep(SNOW_H - 6.0, SNOW_H - 3.0, p.y))
        * (1.0 - smoothstep(SNOW_W * 0.5 - 3.0, SNOW_W * 0.5, abs(p.x)));
   return p;
@@ -678,6 +695,11 @@ void main() {
       p = helix(clamp(q, 0.0, 0.999), 1.0, aPos.y, aPos.z, 0.3, t);
       bright = step(0.0, q) * uComet.w * (exp(-aPos.x * 60.0) * 3.5 + 0.35);
     }
+    float tierG = uTier[int(clamp(type > 0.5 && type < 1.5 ? aPos.y / H : t, 0.0, 0.999) * 15.0)];
+    if (type < 0.5 || (type > 1.5 && type < 2.5)) {                     // 光带就是琴弦：这一层被弹响时，弦会颤动
+      float vib = tierG * sin(q * (type < 0.5 ? 2600.0 : 1900.0) - uTime * 38.0);
+      p.xz *= 1.0 + 0.07 * vib; p.y += 0.06 * vib;
+    }
     p.xz = rot(uSpin) * p.xz;
 
     if (type < 2.5) {
@@ -691,8 +713,8 @@ void main() {
       float g = uComet.w * exp(-dot(dv, dv) * 0.5);
       float tail = 0.0;
       if (type < 0.5) { float dq = uCometQ - q; tail = dq > 0.0 ? exp(-dq * 24.0) * uComet.w : 0.0; }
-      col = mix(col, uGold, clamp(g * 1.2 + tail, 0.0, 1.0));
-      bright *= 1.0 + 3.2 * g + 1.7 * tail;
+      col = mix(col, uGold, clamp(g * 1.2 + tail + tierG * 0.8, 0.0, 1.0));
+      bright *= 1.0 + 3.2 * g + 1.7 * tail + 2.4 * tierG;
 
       // 聚合 / 化雪：没聚合的时候，这些粒子就是漫天的雪
       // 先后顺序(ord 越小越早):树身的雪从下往上落定 → 小灯自下而上亮起 → 光带最后盘旋而上。散开时顺序正好反过来
@@ -729,13 +751,18 @@ void main() {
     float tt = (1.0 - exp(-age * 1.1)) / 1.1;
     p = vec3(0.0, STAR_Y, 0.0) + aPos * tt * 1.8 + vec3(sin(age * 0.8 + ph * 20.0) * 0.15 * age, -0.12 * age * age, 0.0);
     bright = exp(-age * 0.5) * (0.5 + 0.9 * pow(0.5 + 0.5 * sin(uTime * 6.0 + ph * 50.0), 4.0)) * 1.3 * step(age, 20.0);
-  } else {                               // 挂在树上的灯：被敲响或彗星经过时会亮一下
+  } else if (type < 7.5) {               // 挂在树上的灯：被敲响或彗星经过时会亮一下
     p.xz = rot(uSpin) * aPos.xz;
     float flare = exp(-max(uTime - ex, 0.0) * 2.2);
     vec3 dv = p - uComet.xyz;
     float g = uComet.w * exp(-dot(dv, dv) * 0.8);
     bright = (0.72 + 0.28 * sin(uTime * 1.6 + ph * 30.0)) * (1.0 + 2.6 * flare + 1.4 * g) * smoothstep(0.85, 1.0, uForm);
     size *= 1.0 + 0.7 * flare;
+  } else {                               // 地上的琴键：响的那个键亮起来，并且微微往下一沉，像被按下去
+    float kg = uKey[int(ex + 0.5)];
+    p.y = 0.01 - 0.06 * kg;
+    bright = (0.2 + 0.08 * sin(uTime * 0.8 + ph * 20.0)) * mix(0.3, 1.0, uForm) + kg * 2.6;
+    col = mix(col, uGold * 1.2, clamp(kg * 1.4, 0.0, 1.0));
   }
 
   if (uMirror > 0.0) {                   // 倒影：上下翻转，越高的地方越淡
@@ -758,7 +785,7 @@ void main() {
   gl_Position = clip;
   float px = size * uPx / max(clip.w, 0.1);
   float shape = 0.0;
-  if (type > 6.5) shape = 2.0;
+  if (type > 6.5 && type < 7.5) shape = 2.0;
   else if (bulb > 0.5) { shape = 2.0; bright *= 0.7 + 0.5 * sin(uTime * (0.8 + ph * 2.2) + ph * 60.0); }   // 小暖灯：一明一暗
   else if (px > 12.0) {                  // 离镜头很近的粒子：虚化成淡淡的光斑，太近的直接淡出
     shape = 1.0;
@@ -850,6 +877,7 @@ uniform mat4 uVP, uView;
 uniform vec2 uProj;
 uniform vec4 uComet;
 uniform float uTime, uForm, uSpin, uMirror;
+uniform float uTier[15];
 out vec2 vUv;
 out vec3 vTint;
 out float vShade, vAlong, vGlow, vDim;
@@ -900,7 +928,7 @@ void main() {
   gl_Position = vec4(clip.xy + off * uProj, zn * clip.w, clip.w);
 
   vec3 mid = c + d * size * 0.5 - uComet.xyz;
-  vGlow = uComet.w * exp(-dot(mid, mid) * 0.4) * (uMirror > 0.0 ? 0.0 : 1.0);
+  vGlow = (uComet.w * exp(-dot(mid, mid) * 0.4) + 0.9 * uTier[int(min(hh, 0.999) * 15.0)]) * (uMirror > 0.0 ? 0.0 : 1.0);
   vUv = vec2(corner.x, kind > 1.5 ? 1.0 - corner.y : corner.y);
   vTint = aTint.rgb; vShade = aTint.a; vAlong = corner.y; vDim = dim; vTile = aMisc.y; vKind = kind;
 }`;
@@ -1090,7 +1118,7 @@ let pinch = 0;
 const hint = document.getElementById('hint');
 
 // 底部的提示：一条一条轮流出现，全部出现过一遍就不再打扰
-const HINTS = ['拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '树上挂着的小礼物盒是照片，点一下打开', '在空白处双击，让树散开', '右下角「照片」可以添加照片，「手势」可以用手隔空控制', '右下角的 × 可以收起按钮；按 H 键把按钮和提示全部隐藏'];
+const HINTS = ['键盘上三排字母就是琴键：下排是树底的低音，上排是树尖的高音', '按住 Shift 是延音踏板：琴声变长，雪慢下来', '右下角「演奏」：让树弹一首《平安夜》', '拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '树上挂着的小礼物盒是照片，点一下打开', '在空白处双击，让树散开', '右下角「照片」可以添加照片，「手势」可以用手隔空控制', '右下角的 × 可以收起按钮；按 H 键把按钮和提示全部隐藏'];
 if (!CONFIG.messages.length) HINTS.splice(1, 1);
 let hintIdx = 0, hintTimer = 0, hintCycle = 0;
 function showHint(text, ms) {
@@ -1107,9 +1135,11 @@ function cycleHints() {
 
 let formDur = 3.6, introActive = true, introStarted = false, growing = false;   // formDur：聚合 / 散开用几秒；开场时会更慢
 const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);   // 系统设置了"减少动态效果"：开场快速带过
+let growTier = 15;                       // 树长出来时，小灯一层层亮起，每亮一层弹一个音：开场就是一段从低到高的琶音
 function toggleForm() {
   formTarget = formTarget > 0.5 ? 0 : 1;
   growing = formTarget > 0.5;
+  growTier = growing ? 0 : 15;
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
   if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, introActive ? 9000 : 4600); }
@@ -1205,37 +1235,126 @@ function lightWorld(l) {
   return [c * l.x + s * l.z, l.y, -s * l.x + c * l.z];
 }
 
-// ---- 声音：每盏灯是一个音符，挂得越高音越高（五声音阶，怎么排都好听） ----
-let audio = null, master = null, soundOn = store.get('sound', true);
+// ---- 声音：树就是一架竖起来的钢琴 ----
+// 三角钢琴的低音弦长、高音弦短，排起来正好是树的形状：所以树底是低音，树尖是高音。
+// 树有 15 层，每层一个音（五声音阶，怎么弹都好听），从 C3 一直到 A5。
+let audio = null, master = null, noiseBuf = null, soundOn = store.get('sound', true);
 function ensureAudio() {
   if (audio) { if (audio.state === 'suspended') audio.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   audio = new AC();
   master = audio.createGain(); master.gain.value = 0.2;
-  const delay = audio.createDelay(1), fb = audio.createGain(), wet = audio.createGain();   // 一点回声，像在空旷的雪夜里
-  delay.delayTime.value = 0.31; fb.gain.value = 0.32; wet.gain.value = 0.3;
+  // 混响：用一段慢慢变弱的噪声当"房间"，像在空旷的雪夜里弹琴
+  const sr = audio.sampleRate, len = Math.floor(sr * 3.2), ir = audio.createBuffer(2, len, sr);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+  const verb = audio.createConvolver(), wet = audio.createGain();
+  verb.buffer = ir; wet.gain.value = 0.42;
   master.connect(audio.destination);
-  master.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(audio.destination);
+  master.connect(verb); verb.connect(wet); wet.connect(audio.destination);
+  noiseBuf = audio.createBuffer(1, Math.floor(sr * 0.05), sr);
+  const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
 }
-function chime(freq, vol) {
+// 一个钢琴音：一串泛音（越高的泛音消失得越快）+ 每个音两根略微失谐的弦（钢琴特有的"合唱"感）+ 琴槌敲弦的那一下
+function piano(freq, vol, delay) {
   if (!audio || !soundOn || audio.state !== 'running') return;
-  const t = audio.currentTime;
-  [[1, 0.5], [2, 0.16], [3.01, 0.05]].forEach(([m, g]) => {             // 基音 + 两个泛音 = 八音盒的音色
-    const o = audio.createOscillator(), e = audio.createGain();
-    o.type = 'sine'; o.frequency.value = freq * m;
-    e.gain.setValueAtTime(0, t);
-    e.gain.linearRampToValueAtTime(g * vol, t + 0.006);
-    e.gain.exponentialRampToValueAtTime(0.0001, t + 1.8 / Math.sqrt(m));
-    o.connect(e); e.connect(master); o.start(t); o.stop(t + 2);
+  const t = audio.currentTime + 0.01 + (delay || 0);
+  const len = (pedal ? 7.5 : 3.4) * Math.pow(261.63 / freq, 0.3);          // 低音余音更长；踩着踏板时更长
+  const out = audio.createGain(), lp = audio.createBiquadFilter();
+  out.gain.value = vol;
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(Math.min(16000, freq * (8 + vol * 16)), t);   // 弹得越重，声音越亮
+  lp.frequency.exponentialRampToValueAtTime(Math.max(freq * 2.5, 400), t + len * 0.6);
+  lp.connect(out); out.connect(master);
+  [1, 0.42, 0.24, 0.13, 0.08, 0.045].forEach((g, i) => {
+    const n = i + 1, f = freq * n * Math.sqrt(1 + 0.00035 * n * n);       // 真实琴弦的泛音会略微偏高
+    if (f > 14000) return;
+    const d = len / (1 + i * 0.7);
+    for (const det of [-1, 1]) {
+      const o = audio.createOscillator(), e = audio.createGain();
+      o.frequency.value = f * (1 + det * 0.0008);
+      e.gain.setValueAtTime(0, t);
+      e.gain.linearRampToValueAtTime(g * 0.5, t + 0.004);
+      e.gain.exponentialRampToValueAtTime(g * 0.17, t + 0.004 + d * 0.12);   // 先快后慢两段衰减，这是钢琴声的关键
+      e.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(e); e.connect(lp); o.start(t); o.stop(t + d + 0.05);
+    }
   });
+  const hn = audio.createBufferSource(), hf = audio.createBiquadFilter(), hg = audio.createGain();
+  hn.buffer = noiseBuf; hf.type = 'bandpass'; hf.frequency.value = Math.min(9000, freq * 4); hf.Q.value = 0.8;
+  hg.gain.setValueAtTime(0.12 * vol, t); hg.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  hn.connect(hf); hf.connect(hg); hg.connect(out); hn.start(t);
 }
-const SCALE = [0, 2, 4, 7, 9];
-function noteFor(y) {
-  const n = Math.max(0, Math.min(14, Math.floor(y / H * 15)));
-  return 261.63 * Math.pow(2, (SCALE[n % 5] + 12 * Math.floor(n / 5)) / 12);
+const chime = (freq, vol) => piano(freq, vol);
+const SCALE = [0, 2, 4, 7, 9], PIANO_BASE = 130.81;                      // C3
+const semiForTier = n => SCALE[n % 5] + 12 * Math.floor(n / 5);
+const tierOfY = y => Math.max(0, Math.min(14, Math.floor(y / H * 15)));
+function tierForSemi(s) {                                                 // 不在五声音阶里的音（比如《平安夜》里的 F、B），亮离它最近的那一层
+  let best = 0;
+  for (let n = 1; n < 15; n++) if (Math.abs(semiForTier(n) - s) < Math.abs(semiForTier(best) - s)) best = n;
+  return best;
 }
-function ringLight(l, vol) { l.ring = time; chime(noteFor(l.y), vol); }
+const freqOf = s => PIANO_BASE * Math.pow(2, s / 12);
+function noteFor(y) { return freqOf(semiForTier(tierOfY(y))); }
+// 弹一个音：发声 + 树上对应的那一层亮起、光带颤动 + 地上对应的琴键亮起
+const tierHit = new Float32Array(15).fill(-100), keyHit = new Float32Array(36).fill(-100);
+const tierGlow = new Float32Array(15), keyGlow = new Float32Array(36);
+let pedal = false, pedalAmt = 0, snowT = 0;
+function pressNote(semi, vol, quiet) {
+  semi = Math.max(0, Math.min(35, semi | 0));
+  keyHit[semi] = time;
+  if (!quiet) tierHit[tierForSemi(semi)] = time;
+  piano(freqOf(semi), vol);
+}
+function ringLight(l, vol) { l.ring = time; pressNote(semiForTier(tierOfY(l.y)), vol); }
+
+// ---- 电脑键盘就是琴键：下排 Z–B 是树底的低音，中排 A–G 是树腰，上排 Q–T 是树尖 ----
+// （避开了 H：H 是隐藏按钮；空格是散开 / 聚合）
+const KEYMAP = { KeyZ: 0, KeyX: 1, KeyC: 2, KeyV: 3, KeyB: 4, KeyA: 5, KeyS: 6, KeyD: 7, KeyF: 8, KeyG: 9, KeyQ: 10, KeyW: 11, KeyE: 12, KeyR: 13, KeyT: 14 };
+window.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input')) return;
+  if (e.key === 'Shift') { pedal = true; return; }                        // 按住 Shift = 延音踏板
+  const n = KEYMAP[e.code];
+  if (n === undefined || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  ensureAudio(); pressNote(semiForTier(n), 0.75);
+});
+window.addEventListener('keyup', e => { if (e.key === 'Shift') pedal = false; });
+window.addEventListener('blur', () => { pedal = false; });
+window.addEventListener('pointerdown', () => ensureAudio(), { capture: true });
+
+// ---- 演奏：让树弹一首《平安夜》（1818 年的曲子，早已是公共领域） ----
+// 每个音：[音高（0 = C3）, 拍数]。左手是"咚—嗒—嗒"的华尔兹伴奏
+const SN_MEL = [[19,1.5],[21,.5],[19,1],[16,3],[19,1.5],[21,.5],[19,1],[16,3],[26,2],[26,1],[23,3],[24,2],[24,1],[19,3],
+  [21,2],[21,1],[24,1.5],[23,.5],[21,1],[19,1.5],[21,.5],[19,1],[16,3],[21,2],[21,1],[24,1.5],[23,.5],[21,1],[19,1.5],[21,.5],[19,1],[16,3],
+  [26,2],[26,1],[29,1.5],[26,.5],[23,1],[24,3],[28,3],[24,1],[19,1],[16,1],[19,1.5],[17,.5],[14,1],[12,6]];
+const SN_BARS = 'CCCCGGCCFFCCFFCCGGCCCGCC';
+const CHORD = { C: [0, 4, 7], F: [5, 9, 12], G: [7, 11, 14] };
+const BEAT = 0.62;
+const song = { on: false, t: 0, t0: 0, i: 0, ev: [] };
+(function buildSong() {
+  let b = 0;
+  for (const [s, d] of SN_MEL) { song.ev.push([b * BEAT, s, 0.62, false]); b += d; }
+  [...SN_BARS].forEach((c, k) => {
+    const [r, a, f] = CHORD[c], t0 = (k * 3) * BEAT;
+    song.ev.push([t0, r, 0.42, false], [t0 + BEAT, a, 0.16, true], [t0 + BEAT, f, 0.16, true], [t0 + 2 * BEAT, a, 0.14, true], [t0 + 2 * BEAT, f, 0.14, true]);
+  });
+  song.ev.sort((x, y) => x[0] - y[0]);
+})();
+const playBtn = document.getElementById('playBtn');
+function setSong(on) {
+  song.on = on; song.t0 = performance.now() + 400; song.i = 0;   // 按真实时间走：画面卡顿时曲子也不会被拖慢
+  playBtn.textContent = on ? '停止' : '演奏';
+}
+playBtn.addEventListener('click', () => { ensureAudio(); setSong(!song.on); });
+function songTick() {
+  if (!song.on) return;
+  song.t = (performance.now() - song.t0) / 1000;
+  while (song.i < song.ev.length && song.ev[song.i][0] <= song.t) {
+    const [, s, v, quiet] = song.ev[song.i++];
+    pressNote(s, v, quiet);
+  }
+  if (song.i >= song.ev.length && song.t > song.ev[song.ev.length - 1][0] + 5) setSong(false);
+}
 
 // ---- 点击：点到了哪盏灯？点到了树的哪里？ ----
 let camVP = null, camEye = [0, 0, 1], camDist = 20;
@@ -1294,7 +1413,7 @@ soundBtn.textContent = soundOn ? '声音 开' : '声音 关';
 soundBtn.addEventListener('click', () => {
   soundOn = !soundOn; store.set('sound', soundOn);
   soundBtn.textContent = soundOn ? '声音 开' : '声音 关';
-  if (soundOn) { ensureAudio(); chime(noteFor(6), 0.6); }
+  if (soundOn) { ensureAudio(); pressNote(semiForTier(6), 0.6); }
 });
 let resetArmed = 0;
 resetBtn.addEventListener('click', () => {                             // 要点两次才清空，免得误触
@@ -1683,15 +1802,25 @@ function frame(now) {
   dist = Math.min(48, Math.max(10, dist));
   pointerLive *= Math.exp(-dt * 1.5);
 
+  // 钢琴：琶音、演奏、延音踏板，以及每一层 / 每个键的亮度
+  while (growTier < 15 && form > (1.1 + 1.2 * (growTier + 0.5) / 15) / 3) { pressNote(semiForTier(growTier), 0.32 + growTier * 0.015); growTier++; }
+  songTick();
+  pedalAmt += ((pedal ? 1 : 0) - pedalAmt) * Math.min(1, dt * 3);
+  snowT += dt * (1 - 0.82 * pedalAmt);                                // 踩下踏板：雪几乎停在空中
+  const fade = 2.4 - 1.6 * pedalAmt;                                  // 踩着踏板时，光也熄得更慢
+  for (let i = 0; i < 15; i++) tierGlow[i] = Math.exp(-Math.max(0, time - tierHit[i]) * fade);
+  for (let i = 0; i < 36; i++) keyGlow[i] = Math.exp(-Math.max(0, time - keyHit[i]) * fade);
+
   // 彗星：树完全成形后，一团金色的光沿着丝带爬上去；到顶时触发一次"心跳"
   if (growing && form >= 1) {                                          // 树刚刚长好：树顶的星星闪一下，地面荡开一圈涟漪
-    growing = false; pulseAt = time; chime(1568, 0.3);
+    growing = false; pulseAt = time;
+    [12, 16, 19, 24].forEach((s, i) => { keyHit[s] = time + i * 0.07; piano(freqOf(s), 0.34, i * 0.07); });   // 星星亮起：落下一个和弦
     if (introActive) { introActive = false; formDur = 3.6; document.body.classList.remove('intro'); }
   }
   let cometOn = 0;
   if (form >= 1) {
     cometQ += dt * CONFIG.cometSpeed;
-    if (cometQ >= 1) { cometQ -= 1; pulseAt = time; chime(2093, 0.28); }
+    if (cometQ >= 1) { cometQ -= 1; pulseAt = time; tierHit[14] = time; piano(1046.5, 0.26); }
     cometOn = smooth(0, 0.03, cometQ) * (1 - smooth(0.97, 1, cometQ));
   } else cometQ = 0;
   const ct = 1 - Math.sqrt(1 - cometQ);
@@ -1737,6 +1866,7 @@ function frame(now) {
     gl.uniform1f(k.uTime, time);
     gl.uniform1f(k.uForm, form);
     gl.uniform1f(k.uSpin, spin);
+    gl.uniform1fv(k['uTier[0]'], tierGlow);
     gl.uniform1f(k.uGain, hdr ? 1 : 0.3);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(k.uAtlas, 4);
     gl.activeTexture(gl.TEXTURE0);
@@ -1762,7 +1892,10 @@ function frame(now) {
   gl.uniform1f(u.uAspect, aspect);
   gl.uniform1f(u.uDist, dd);
   gl.uniform1f(u.uBand, CONFIG.bandWidth);
-  gl.uniform1f(u.uSnow, 1 + 0.9 * ci);                                  // 开场时雪更大一些
+  gl.uniform1f(u.uSnow, 1 + 0.9 * ci);
+  gl.uniform1f(u.uSnowT, snowT);
+  gl.uniform1fv(u['uTier[0]'], tierGlow);
+  gl.uniform1fv(u['uKey[0]'], keyGlow);                                  // 开场时雪更大一些
   gl.uniform1f(u.uPx, HH / (2 * Math.tan(FOV / 2)));
   gl.uniform1f(u.uGain, hdr ? 1 : 0.3);
   gl.uniform1f(u.uMaxPt, Math.min(maxPoint, 34 * dpr));
