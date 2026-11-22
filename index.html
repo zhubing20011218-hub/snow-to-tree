@@ -1478,7 +1478,15 @@ function setSong(on) {
   song.ev = SONGS[songIdx].ev;
   playBtn.textContent = on ? '停止' : '演奏';
 }
-playBtn.addEventListener('click', () => { ensureAudio(); setSong(!song.on); });
+playBtn.addEventListener('click', () => { ensureAudio(); autoPlay = false; setSong(!song.on); });
+// 开场：树合拢、琶音和和弦响完后，自动演奏一次默认曲目（只有这一次；中途点「停止」就停，之后不会再自动响）
+let autoPlay = true, introDoneAt = 0;
+function autoPlayTick() {
+  if (!autoPlay || introActive || !SONGS.length || !audio || audio.state !== 'running') return;
+  if (performance.now() - introDoneAt < 1600) return;                  // 和弦的余音先停一停，再开始演奏
+  autoPlay = false;
+  if (!song.on) { songIdx = 0; showSongName(); setSong(true); }
+}
 songBtn.addEventListener('click', () => {                                // 点曲名换下一首
   if (song.on) setSong(false);
   songIdx = (songIdx + 1) % SONGS.length; showSongName();
@@ -1961,6 +1969,7 @@ function frame(now) {
     else tierHit[growTier] = time;                                    // 没有音的那一层也亮一下，光是连续往上走的
     growTier++;
   }
+  autoPlayTick();
   songTick();
   pedalAmt += ((pedal ? 1 : 0) - pedalAmt) * Math.min(1, dt * 3);
   snowT += dt * (1 - 0.82 * pedalAmt);                                // 踩下踏板：雪几乎停在空中
@@ -1973,7 +1982,7 @@ function frame(now) {
     growing = false; pulseAt = time;
     if (introActive) {
       [12, 16, 19, 24].forEach((s, i) => { keyHit[s] = time + i * 0.07; piano(freqOf(s), 0.34, i * 0.07); });   // 星星亮起：落下一个和弦
-      introActive = false; formDur = 3.6; document.body.classList.remove('intro');
+      introActive = false; introDoneAt = performance.now(); formDur = 3.6; document.body.classList.remove('intro');
     }
   }
   let cometOn = 0;
