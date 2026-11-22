@@ -38,6 +38,7 @@
     transition: opacity 1.5s ease;
   }
   .hint.gone { opacity: 0; }
+  .hint.center { bottom: 47%; font-size: 12px; color: rgba(255, 255, 255, .5); }   /* 开场"轻触屏幕"：放在雪夜正中间 */
 
   #msg {
     position: fixed; left: 0; top: 0; pointer-events: none; white-space: nowrap;
@@ -1118,7 +1119,7 @@ let pinch = 0;
 const hint = document.getElementById('hint');
 
 // 底部的提示：一条一条轮流出现，全部出现过一遍就不再打扰
-const HINTS = ['键盘上三排字母就是琴键：下排是树底的低音，上排是树尖的高音', '按住 Shift 是延音踏板：琴声变长，雪慢下来', '右下角「演奏」：让树弹一首《平安夜》', '拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '金色的光经过时，灯会唱歌', '树上挂着的小礼物盒是照片，点一下打开', '在空白处双击，让树散开', '右下角「照片」可以添加照片，「手势」可以用手隔空控制', '右下角的 × 可以收起按钮；按 H 键把按钮和提示全部隐藏'];
+const HINTS = ['键盘 Z 到 M 是低音（树的下半截），Q 到 I 是高音（树的上半截）', '按住 Shift 是延音踏板：琴声变长，雪慢下来', '右下角「演奏」：让树弹一首《平安夜》', '拖动旋转 · 滚轮缩放', '点一下金色的灯，里面藏着一句话', '点一下树，挂上你自己的灯', '点一下你挂的灯，它就会响', '树上挂着的小礼物盒是照片，点一下打开', '在空白处双击，让树散开', '右下角「照片」可以添加照片，「手势」可以用手隔空控制', '右下角的 × 可以收起按钮；按 H 键把按钮和提示全部隐藏'];
 if (!CONFIG.messages.length) HINTS.splice(1, 1);
 let hintIdx = 0, hintTimer = 0, hintCycle = 0;
 function showHint(text, ms) {
@@ -1133,16 +1134,18 @@ function cycleHints() {
   hintCycle = setTimeout(cycleHints, 5800);
 }
 
+let tapHinted = false;
 let formDur = 3.6, introActive = true, introStarted = false, growing = false;   // formDur：聚合 / 散开用几秒；开场时会更慢
 const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);   // 系统设置了"减少动态效果"：开场快速带过
-let growTier = 15;                       // 树长出来时，小灯一层层亮起，每亮一层弹一个音：开场就是一段从低到高的琶音
+let growTier = 15;                       // 开场树长出来时，小灯一层层亮起，配一段从低到高的琶音（只在开场响这一次）
+const ARP = [0, 4, 7, 12, 16, 19, 24, 28];                               // C 大三和弦的琶音：C3 E3 G3 C4 E4 G4 C5 E5
 function toggleForm() {
   formTarget = formTarget > 0.5 ? 0 : 1;
   growing = formTarget > 0.5;
-  growTier = growing ? 0 : 15;
+  growTier = growing && introActive ? 0 : 15;
   document.body.classList.toggle('formed', formTarget > 0.5);
   clearTimeout(hintCycle);
-  if (formTarget > 0.5) { hint.classList.add('gone'); hintCycle = setTimeout(cycleHints, introActive ? 9000 : 4600); }
+  if (formTarget > 0.5) { hint.classList.add('gone'); setTimeout(() => hint.classList.remove('center'), 1600); hintCycle = setTimeout(cycleHints, introActive ? 9000 : 4600); }
   else showHint('玫红和金色的雪花是照片，点一下放大 · 双击，让雪重新聚成树');
 }
 canvas.addEventListener('dblclick', e => {
@@ -1267,12 +1270,12 @@ function piano(freq, vol, delay) {
   lp.frequency.exponentialRampToValueAtTime(Math.max(freq * 2.5, 400), t + len * 0.6);
   lp.connect(out); out.connect(master);
   [1, 0.42, 0.24, 0.13, 0.08, 0.045].forEach((g, i) => {
-    const n = i + 1, f = freq * n * Math.sqrt(1 + 0.00035 * n * n);       // 真实琴弦的泛音会略微偏高
+    const n = i + 1, f = freq * n * Math.sqrt(1 + 0.00015 * n * n);       // 真实琴弦的泛音会略微偏高（收小了，听起来更准）
     if (f > 14000) return;
     const d = len / (1 + i * 0.7);
     for (const det of [-1, 1]) {
       const o = audio.createOscillator(), e = audio.createGain();
-      o.frequency.value = f * (1 + det * 0.0008);
+      o.frequency.value = f * (1 + det * 0.00025);
       e.gain.setValueAtTime(0, t);
       e.gain.linearRampToValueAtTime(g * 0.5, t + 0.004);
       e.gain.exponentialRampToValueAtTime(g * 0.17, t + 0.004 + d * 0.12);   // 先快后慢两段衰减，这是钢琴声的关键
@@ -1286,10 +1289,10 @@ function piano(freq, vol, delay) {
   hn.connect(hf); hf.connect(hg); hg.connect(out); hn.start(t);
 }
 const chime = (freq, vol) => piano(freq, vol);
-const SCALE = [0, 2, 4, 7, 9], PIANO_BASE = 130.81;                      // C3
-const semiForTier = n => SCALE[n % 5] + 12 * Math.floor(n / 5);
+const WHITE = [0, 2, 4, 5, 7, 9, 11], PIANO_BASE = 130.8128;              // C3（标准音高 A4 = 440Hz）
+const semiForTier = n => WHITE[n % 7] + 12 * Math.floor(n / 7);          // 15 层 = 钢琴白键 C3 到 C5，正好两个八度
 const tierOfY = y => Math.max(0, Math.min(14, Math.floor(y / H * 15)));
-function tierForSemi(s) {                                                 // 不在五声音阶里的音（比如《平安夜》里的 F、B），亮离它最近的那一层
+function tierForSemi(s) {                                                 // 黑键、或比 C5 更高的音，亮离它最近的那一层
   let best = 0;
   for (let n = 1; n < 15; n++) if (Math.abs(semiForTier(n) - s) < Math.abs(semiForTier(best) - s)) best = n;
   return best;
@@ -1300,23 +1303,23 @@ function noteFor(y) { return freqOf(semiForTier(tierOfY(y))); }
 const tierHit = new Float32Array(15).fill(-100), keyHit = new Float32Array(36).fill(-100);
 const tierGlow = new Float32Array(15), keyGlow = new Float32Array(36);
 let pedal = false, pedalAmt = 0, snowT = 0;
-function pressNote(semi, vol, quiet) {
+function pressNote(semi, vol, quiet, tier) {
   semi = Math.max(0, Math.min(35, semi | 0));
   keyHit[semi] = time;
-  if (!quiet) tierHit[tierForSemi(semi)] = time;
+  if (!quiet) tierHit[tier === undefined ? tierForSemi(semi) : tier] = time;
   piano(freqOf(semi), vol);
 }
-function ringLight(l, vol) { l.ring = time; pressNote(semiForTier(tierOfY(l.y)), vol); }
+function ringLight(l, vol) { const n = tierOfY(l.y); l.ring = time; pressNote(semiForTier(n), vol, false, n); }
 
-// ---- 电脑键盘就是琴键：下排 Z–B 是树底的低音，中排 A–G 是树腰，上排 Q–T 是树尖 ----
-// （避开了 H：H 是隐藏按钮；空格是散开 / 聚合）
-const KEYMAP = { KeyZ: 0, KeyX: 1, KeyC: 2, KeyV: 3, KeyB: 4, KeyA: 5, KeyS: 6, KeyD: 7, KeyF: 8, KeyG: 9, KeyQ: 10, KeyW: 11, KeyE: 12, KeyR: 13, KeyT: 14 };
+// ---- 电脑键盘就是琴键：下排 Z X C V B N M 是低音 do 到 si（树的下半截），上排 Q W E R T Y U I 是高音 do 到高 do（树的上半截）----
+// （没用 H：H 是隐藏按钮；空格是散开 / 聚合）
+const KEYMAP = { KeyZ: 0, KeyX: 1, KeyC: 2, KeyV: 3, KeyB: 4, KeyN: 5, KeyM: 6, KeyQ: 7, KeyW: 8, KeyE: 9, KeyR: 10, KeyT: 11, KeyY: 12, KeyU: 13, KeyI: 14 };
 window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input')) return;
   if (e.key === 'Shift') { pedal = true; return; }                        // 按住 Shift = 延音踏板
   const n = KEYMAP[e.code];
   if (n === undefined || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-  ensureAudio(); pressNote(semiForTier(n), 0.75);
+  ensureAudio(); pressNote(semiForTier(n), 0.75, false, n);
 });
 window.addEventListener('keyup', e => { if (e.key === 'Shift') pedal = false; });
 window.addEventListener('blur', () => { pedal = false; });
@@ -1788,7 +1791,10 @@ function frame(now) {
 
   // 聚合进度、松手后的惯性、鼠标"吹气"的余波
   // 开场：按画面实际播放的时间来算（而不是按打开网页的时间），这样即使网页在后台加载，雪夜那一段也不会被跳过
-  if (introActive && !introStarted && time >= (calm ? 0.4 : CONFIG.introSnow)) {
+  // 浏览器规定"点过才能出声"：开场的雪夜等你轻触一下再长树，这样开场的琶音才听得到（12 秒没点，就安静地长出来）
+  const heard = !!audio && audio.state === 'running', snowEnd = calm ? 0.4 : CONFIG.introSnow;
+  if (introActive && !introStarted && !heard && !tapHinted && time >= snowEnd) { tapHinted = true; hint.classList.add('center'); showHint('轻触屏幕，听树长出来'); }
+  if (introActive && !introStarted && time >= snowEnd && (heard || time >= snowEnd + 12)) {
     introStarted = true;
     if (formTarget < 0.5) { formDur = calm ? 2 : CONFIG.introGrow; toggleForm(); }   // 用户已经自己双击让树长出来的话，就不重复了
   }
@@ -1803,7 +1809,11 @@ function frame(now) {
   pointerLive *= Math.exp(-dt * 1.5);
 
   // 钢琴：琶音、演奏、延音踏板，以及每一层 / 每个键的亮度
-  while (growTier < 15 && form > (1.1 + 1.2 * (growTier + 0.5) / 15) / 3) { pressNote(semiForTier(growTier), 0.32 + growTier * 0.015); growTier++; }
+  while (growTier < 15 && form > (1.1 + 1.2 * (growTier + 0.5) / 15) / 3) {
+    if (growTier % 2 === 0) pressNote(ARP[growTier / 2], 0.3 + growTier * 0.012, false, growTier);
+    else tierHit[growTier] = time;                                    // 没有音的那一层也亮一下，光是连续往上走的
+    growTier++;
+  }
   songTick();
   pedalAmt += ((pedal ? 1 : 0) - pedalAmt) * Math.min(1, dt * 3);
   snowT += dt * (1 - 0.82 * pedalAmt);                                // 踩下踏板：雪几乎停在空中
@@ -1814,13 +1824,15 @@ function frame(now) {
   // 彗星：树完全成形后，一团金色的光沿着丝带爬上去；到顶时触发一次"心跳"
   if (growing && form >= 1) {                                          // 树刚刚长好：树顶的星星闪一下，地面荡开一圈涟漪
     growing = false; pulseAt = time;
-    [12, 16, 19, 24].forEach((s, i) => { keyHit[s] = time + i * 0.07; piano(freqOf(s), 0.34, i * 0.07); });   // 星星亮起：落下一个和弦
-    if (introActive) { introActive = false; formDur = 3.6; document.body.classList.remove('intro'); }
+    if (introActive) {
+      [12, 16, 19, 24].forEach((s, i) => { keyHit[s] = time + i * 0.07; piano(freqOf(s), 0.34, i * 0.07); });   // 星星亮起：落下一个和弦
+      introActive = false; formDur = 3.6; document.body.classList.remove('intro');
+    }
   }
   let cometOn = 0;
   if (form >= 1) {
     cometQ += dt * CONFIG.cometSpeed;
-    if (cometQ >= 1) { cometQ -= 1; pulseAt = time; tierHit[14] = time; piano(1046.5, 0.26); }
+    if (cometQ >= 1) { cometQ -= 1; pulseAt = time; }
     cometOn = smooth(0, 0.03, cometQ) * (1 - smooth(0.97, 1, cometQ));
   } else cometQ = 0;
   const ct = 1 - Math.sqrt(1 - cometQ);
@@ -1829,10 +1841,10 @@ function frame(now) {
   const comet = [cs * hx + sn * hz, H * ct, -sn * hx + cs * hz];
   const pulseAge = time - pulseAt;
 
-  // 金光经过哪盏灯，就敲响哪盏灯
+  // 金光经过哪盏灯，那盏灯就闪一下（只亮不响：声音全部留给你自己弹）
   if (cometOn > 0.5) for (const l of lights) {
     const w = lightWorld(l), ddx = w[0] - comet[0], ddy = w[1] - comet[1], ddz = w[2] - comet[2];
-    if (ddx * ddx + ddy * ddy + ddz * ddz < 0.72 && time - l.heard > 3) { l.heard = time; ringLight(l, 0.5); }
+    if (ddx * ddx + ddy * ddy + ddz * ddz < 0.72 && time - l.heard > 3) { l.heard = time; l.ring = time; }
   }
 
   // 相机：围着树转
